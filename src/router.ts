@@ -73,15 +73,23 @@ export const pathForTab = (tab: Tab): string => `/${tab}`;
 
 interface NavState {
   app: true;
-  /** 0 = 主视图；1 = 第一个面板层；以此类推 */
+  /**
+   * 面板栈深 = 要退几条历史才能回到「无面板」那一层。
+   *
+   * 0 = 主视图；1 = 第一个面板层；以此类推。
+   * 「关闭」就是 `history.go(-depth)`。切页签、从主视图点开、面板内深入
+   * 都会显式写这个值，所以它和「当前面板有几层」始终一致。
+   *
+   * 前提是 initRouter 会给深链补一条「无面板」的底层，
+   * 否则 depth 会比实际可退的条数多 1，`go(-depth)` 会退过头。
+   */
   depth: number;
-  /** 这个条目是我们自己压出来的吗。直接打开分享链接时没有上一条可退，记为 true */
+  /** 这个条目是我们自己压出来的吗。直接打开分享链接时为 true */
   root: boolean;
   /**
    * 上一层叫什么。
    * 没有面包屑之后，「返回」按钮是唯一的方位线索 —— 把上一层的名字
-   * 记在 history.state 里，按钮就能写「← 返回 subtle」而不是干巴巴一个「返回」。
-   * 代价只有一个字符串。
+   * 记在 history.state 里，tooltip 就能写「返回 subtle」而不是干巴巴一个「返回」。
    */
   from?: string;
 }
@@ -133,19 +141,19 @@ function navState(): NavState | null {
   return s && s.app === true ? (s as NavState) : null;
 }
 
-/** 当前面板深度。直接打开链接时为 1（URL 里已经有 open）。 */
+/** 当前面板深度。 */
 export function panelDepth(): number {
   return navState()?.depth ?? 0;
 }
 
-/** 这个历史条目是不是「深度链接进来的第一层」——没有上一条可退。 */
-function isRootEntry(): boolean {
-  return navState()?.root === true;
-}
-
 function apply(
   url: string,
-  { replace = false, depth = 0, root = false, from }: { replace?: boolean; depth?: number; root?: boolean; from?: string } = {},
+  {
+    replace = false,
+    depth = 0,
+    root = false,
+    from,
+  }: { replace?: boolean; depth?: number; root?: boolean; from?: string } = {},
 ) {
   const state: NavState = { app: true, depth, root };
   if (from) state.from = from;
@@ -170,23 +178,38 @@ function withPeek(peek: Peek | null, base?: URLSearchParams): string {
 /**
  * 应用启动时调用一次。
  *
- * 直接打开分享链接（`/read?open=word:x`）时 history.state 是空的，
- * 这里的 depth 会被记成 1 且标记为 root —— 之后「返回」「关闭」就知道
- * 没有上一条可退，改用 replace 清掉 open，而不是把用户带出应用。
+ * 直接打开分享链接（`/read?open=word:x`）时，URL 里已经有面板，但它背后
+ * 没有「无面板」的那一条 —— 那样「关闭」就没地方退，只能退出去应用。
+ * 所以这里把无面板的那一层垫到底下，让深链与普通进入的语义统一：
+ *
+ *   [/review]  ← 无面板
+ *   [/review?open=text:125]
+ *
+ * 这样「关闭」永远是 `history.go(-depth)`，「返回」永远是 `history.back()`，
+ * 两种进入方式语义一致。
  */
 export function initRouter() {
   const r = read();
   const canonical = `${pathForTab(r.tab)}${location.search}`;
-  const state = navState();
 
-  if (!state) {
-    // 直接打开分享链接（/read?open=word:x）时 history.state 是空的。
-    // depth 记成 1 且标记 root —— 之后「返回」「关闭」就知道没有上一条可退，
-    // 改用 replace 清掉 open，而不是把用户带出应用。
-    history.replaceState({ app: true, depth: r.peek ? 1 : 0, root: true }, '', canonical);
-  } else if (location.pathname !== pathForTab(r.tab)) {
-    // 把 `/` 这类路径规范成 `/learn`，否则同一个页面有两个 URL
-    history.replaceState(state, '', canonical);
+  if (navState()) {
+    // 已在本次会话中（例如热重载）—— 只把 `/` 这类路径规范成 `/learn`
+    if (location.pathname !== pathForTab(r.tab)) {
+      history.replaceState(navState(), '', canonical);
+    }
+    emit();
+    return;
+  }
+
+  if (r.peek) {
+    // 必须在 replaceState **之前**把原 URL 存下来：
+    // replaceState 会立刻改写 location.href，之后读到的已经是剥掉 open 的那个，
+    // 再 push 就会把面板叠没。
+    const original = location.href;
+    history.replaceState({ app: true, depth: 0, root: true }, '', withPeek(null));
+    history.pushState({ app: true, depth: 1, root: false }, '', original);
+  } else {
+    history.replaceState({ app: true, depth: 0, root: true }, '', canonical);
   }
   emit();
 }
@@ -235,16 +258,21 @@ function clearPeek() {
   apply(withPeek(null), { replace: true });
 }
 
-/** 返回一层。栈底或深度链接的第一层 → 直接关掉面板。 */
+/** 返回一层。已经在本会话最底下时 → 直接关掉面板。 */
 export function goBack() {
-  if (panelDepth() > 0 && !isRootEntry()) history.back();
+  if (panelDepth() > 0) history.back();
   else clearPeek();
 }
 
-/** 直接关闭整个面板（用户在深栈里想一步脱身）。 */
+/**
+ * 直接关闭整个面板。
+ *
+ * 语义是「无论当前在哪一层，都让侧边栏关掉」—— 所以一律退到无面板的那一层，
+ * 而不是逐层退。depth 就是「要退几条」，因为每次 push 都会显式写它。
+ */
 export function closePeek() {
   const depth = panelDepth();
-  if (depth > 0 && !isRootEntry()) history.go(-depth);
+  if (depth > 0) history.go(-depth);
   else clearPeek();
 }
 

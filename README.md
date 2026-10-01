@@ -128,16 +128,35 @@ npm run dev
 | --- | --- |
 | URL | 只装**当前可见的那一层**（`open=kind:value[:level]`） |
 | 每次点击 | `pushState` —— 所以浏览器后退天然就是逐层返回 |
-| 返回 / Esc | `history.back()`；已在栈底或直接从分享链接进来时改为清掉 `open` |
-| 关闭 | `history.go(-depth)`，一步退出整个深栈 |
+| 返回 | `history.back()` 一层 |
+| 关闭 | `history.go(-depth)` —— **无论当前在第几层，一步让侧边栏关掉** |
 | 搜索框输入 | `replaceState` + 防抖（否则每个键都压一条历史） |
-| 切页签 | 清空面板 |
+| 切页签 | 清空面板，`depth` 归零 |
 
 **不维护内存栈**。因为 URL 能完整决定那一层的画面，`popstate` 时重新解析 URL
 就能渲染，history 本身就是路径 —— 两份状态早晚会对不齐。
 
-深度记在 `history.state` 里（`{app, depth, root}`），不在 URL 里：`root` 标记
-「这是直接打开的分享链接，没有上一条可退」，所以按返回不会把你带出应用。
+`depth` 同时是「面板有几层」和「要退几条历史才能回到无面板那一层」。
+这两个含义能重合，靠的是 `initRouter` 给深链补底层（见下）。
+
+深度记在 `history.state` 里（`{app, depth, root}`），不在 URL 里。
+
+### 深链要先垫一层
+
+直接打开分享链接（`/texts?open=text:125`）时，URL 里已经有面板，但它背后
+**没有「无面板」的那一条** —— 那样「关闭」就没地方退，只能把用户带出应用。
+所以进入时先垫一层：
+
+```text
+[/texts]                    ← 无面板
+[/texts?open=text:125]      ← 面板
+```
+
+这样深链与普通进入的语义就一致了：关闭永远是 `go(-depth)`。
+
+踩过的坑：`replaceState` 会**立刻改写** `location.href`，所以紧接着那行
+`pushState(..., location.href)` 拿到的是已经被剥掉 `open` 的 URL，
+面板一进页面就被叠没。必须先把原 URL 存进变量。
 
 `open` 的编码是 `kind:value[:level]`，**不需要转义** —— 词表里 401,818 个词
 全部只含 `[A-Za-z'-]`，没有一个带冒号（实测），id 与等级都是整数。
