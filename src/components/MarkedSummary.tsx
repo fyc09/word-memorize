@@ -15,7 +15,7 @@ interface Props {
  */
 export function MarkedSummary({ entries, onOpenWord, onNext }: Props) {
   return (
-    <section className="panel">
+    <section className="section">
       <div className="toolbar">
         <h2 className="page-title">标记的词</h2>
         <span className="muted">{entries.length}</span>

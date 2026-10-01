@@ -1,12 +1,14 @@
 /* ===========================================================================
-   语境背单词 —— 样式约定参照 iair-lock / gtd-manager 那套：
-   一套 CSS 变量、手感统一的缓动、不引任何第三方样式库。
+   语境背单词 —— 样式约定参照 iair-lock / gtd-manager（同一位作者的同套设计语言）：
+   一套 CSS 变量、统一缓动、不引任何第三方样式库。
 
-   改动这里之前先记住两条：
-   1. 难度色阶（--lv0…--lv6）是深底专用的一套，全部实测过对比度 ≥ 4.5:1；
-      它们**不在主视图与面板里复用**，只用于正文与单词列表。
-   2. --accent 特意选了紫蓝，避开难度色阶用掉的蓝／青／绿／橙／红，
-      否则「选中态」会和「某个难度」撞色。
+   改动前先记住三条：
+   1. **不用卡片**。分段靠 `border-bottom: 1px solid var(--line)`，
+      不靠圆角矩形 + 背景色 —— 一屏塞五六张卡会非常吵。
+   2. 需要「一块底色」的地方（展开详情、答案行、提示条）必须**留出内边距**，
+      否则文字贴边很难看。统一用 --r 圆角。
+   3. 难度色阶（--lv0…--lv6）是深底专用的一套，实测对比度 ≥ 4.5:1。
+      --accent 特意选了紫蓝，避开色阶用掉的蓝／青／绿／橙／红。
    =========================================================================== */
 
 :root {
@@ -18,7 +20,7 @@
   --line: #26282d;
   --stroke: #383c44;
   --soft: #1b1c20;
-  --panel: #141518;
+  --raised: #141518;
 
   --accent: #818cf8;
   --accent-soft: #221f3a;
@@ -27,7 +29,6 @@
   --warn: #ffb072;
   --ok: #6ce9a6;
 
-  /* 难度色阶：深底专用，全部 ≥ 4.5:1（详见 README） */
   --lv0: #767e8c;
   --lv1: #dfe3e8;
   --lv2: #6ba3f0;
@@ -42,11 +43,11 @@
   --hover: #262b33;
 
   --btn-h: 34px;
-  --r-sm: 8px;
-  --r: 12px;
+  --r: 10px;
+  --r-sm: 6px;
   --r-pill: 999px;
 
-  /* 手感：同 iair-lock —— expo-out 收尾，快而稳 */
+  /* 手感：同参照项目 —— expo-out 收尾，快而稳 */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --fast: 0.18s;
   --slow: 0.32s;
@@ -74,7 +75,6 @@ body {
   color: var(--fg);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
 input,
@@ -128,7 +128,7 @@ a:hover {
   width: 208px;
   display: flex;
   flex-direction: column;
-  padding: 20px 0 20px;
+  padding: 20px 0;
   border-right: 1px solid var(--line);
 }
 
@@ -151,8 +151,8 @@ a:hover {
   gap: 8px;
   height: 38px;
   padding: 0 18px;
-  font-size: 14.5px;
   color: var(--mut);
+  font-size: 14.5px;
   border-left: 2px solid transparent;
   transition:
     color var(--fast) var(--ease),
@@ -193,7 +193,6 @@ a:hover {
 }
 
 .stat-v {
-  color: var(--fg);
   font-variant-numeric: tabular-nums;
 }
 
@@ -209,6 +208,20 @@ a:hover {
   line-height: 18px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * 滚动条隐藏：这是款阅读类界面，滚动条横在正文旁边很碍眼。
+ * 仍可滚动、仍支持键盘与触摸板，只是不显示滑块。
+ */
+.content,
+.panel {
+  scrollbar-width: none;
+}
+
+.content::-webkit-scrollbar,
+.panel::-webkit-scrollbar {
+  display: none;
 }
 
 .content {
@@ -236,78 +249,69 @@ a:hover {
   width: 424px;
   overflow-y: auto;
   padding: 14px 22px 64px;
-  background: var(--panel);
   border-left: 1px solid var(--line);
+  background: var(--raised);
   animation: panelin var(--slow) var(--ease);
 }
 
 @keyframes panelin {
   from {
     opacity: 0;
-    transform: translateX(10px);
+    transform: translateX(24px);
   }
+}
+
+/* 面板里换一层（点词、看记录）时重播一次，让人看得出「换了一页」 */
+.panel-swap {
+  animation: viewin var(--slow) var(--ease);
 }
 
 .panel-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding-bottom: 12px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--line);
+  gap: 4px;
+  margin: 0 0 2px -8px;
 }
 
-.panel-back {
-  flex: 1;
-  min-width: 0;
-  height: var(--btn-h);
-  padding: 0 12px;
-  margin-left: -12px;
-  border-radius: var(--r-sm);
-  font-size: 13px;
-  color: var(--accent);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: background-color var(--fast) var(--ease);
-}
-
-.panel-back:hover {
-  background: var(--soft);
-}
-
-.panel-back:active {
-  transform: scale(0.97);
-}
-
-.panel-close {
+.icon-btn {
   flex: none;
-  width: var(--btn-h);
-  height: var(--btn-h);
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--r-sm);
+  border-radius: var(--r);
   color: var(--mut);
   transition:
     background-color var(--fast) var(--ease),
-    color var(--fast) var(--ease);
+    color var(--fast) var(--ease),
+    transform var(--fast) var(--ease);
 }
 
-.panel-close:hover {
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn:hover {
   background: var(--soft);
   color: var(--fg);
 }
 
-.panel-close:active {
-  transform: scale(0.92);
+.icon-btn:active {
+  transform: scale(0.9);
 }
 
 /* ---------------------------------------------------------------- 按钮 */
 
-/* 并列按钮一律同款：只靠文字区分，不靠颜色。
-   熟练程度（想起来了／有点模糊／没想起来）就是这种情况 ——
-   给它们各配一个颜色会让人以为是三种不同的操作。 */
+/* 并列按钮一律同款，只靠文字区分。
+   熟练程度三选一就是这种情况 —— 给「没想起来」配红色会让人以为
+   那是危险操作，而不是「如实回答」。 */
 .btn,
 .chip {
   display: inline-flex;
@@ -344,8 +348,7 @@ a:hover {
 }
 
 .btn.primary,
-.chip.on,
-.btn.solid {
+.chip.on {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
@@ -457,6 +460,66 @@ a:hover {
   margin-top: 10px;
 }
 
+/* ---------------------------------------------------------------- 复选框 */
+
+/*
+ * 全局把 input 的 appearance 去掉了（为了统一各浏览器的输入框外观），
+ * 复选框必须显式画回来 —— 否则它会渲染成一个完全透明的空盒子。
+ */
+input[type="checkbox"] {
+  appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-content: center;
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  cursor: pointer;
+  transition:
+    background-color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease);
+}
+
+input[type="checkbox"]::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: var(--on-accent);
+  clip-path: polygon(14% 44%, 0 65%, 40% 100%, 100% 16%, 82% 0%, 38% 62%);
+  transform: scale(0);
+  transition: transform var(--fast) var(--ease);
+}
+
+input[type="checkbox"]:hover {
+  border-color: var(--mut);
+}
+
+input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked::after {
+  transform: scale(1);
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mut);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--fast) var(--ease);
+}
+
+.toggle:hover {
+  color: var(--fg);
+}
+
 /* ---------------------------------------------------------------- 阅读 */
 
 .reader {
@@ -475,9 +538,9 @@ a:hover {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  font-size: 12.5px;
-  color: var(--mut);
   margin-bottom: 10px;
+  color: var(--mut);
+  font-size: 12.5px;
 }
 
 /* 元信息分隔用「/」，不用「·」 */
@@ -499,15 +562,14 @@ a:hover {
 .text-meta {
   display: flex;
   gap: 14px;
-  font-size: 12.5px;
   color: var(--mut);
+  font-size: 12.5px;
 }
 
 .prose {
   font-family: var(--font-serif);
   font-size: 19px;
   line-height: 1.9;
-  color: var(--fg);
 }
 
 .prose p {
@@ -555,30 +617,13 @@ a:hover {
   font-weight: 600;
 }
 
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  color: var(--mut);
-  cursor: pointer;
-  user-select: none;
-}
-
-.toggle input {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
 /* ---------------------------------------------------------------- 词卡 */
 
 .side-head {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  margin: 14px 0 0;
+  margin: 12px 0 0;
 }
 
 .side-head-main {
@@ -600,34 +645,34 @@ a:hover {
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 6px;
-  font-size: 13px;
   color: var(--mut);
+  font-size: 13px;
 }
 
 .lv-badge {
   display: inline-block;
   padding: 2px 9px;
   border-radius: var(--r-pill);
+  color: var(--bg);
   font-size: 11.5px;
   font-weight: 700;
-  color: var(--bg);
 }
 
 .card-section {
-  margin-top: 22px;
+  margin-top: 20px;
 }
 
 .card-section h3 {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  margin-bottom: 8px;
   color: var(--mut);
+  font-size: 11.5px;
   font-weight: 650;
-  margin-bottom: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .card-lead {
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
 .def {
@@ -666,35 +711,38 @@ a:hover {
 
 .variant em {
   color: var(--mut);
-  font-style: normal;
   font-size: 11px;
+  font-style: normal;
 }
 
-/* 真实例句：本应用区别于词典的地方 */
+/* 真实例句：本应用区别于词典的地方。扁平处理，靠分隔线而非卡片。 */
 .example {
-  padding: 11px 13px;
-  margin-bottom: 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: var(--soft);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
   font-family: var(--font-serif);
   font-size: 15.5px;
   line-height: 1.65;
 }
 
+.example:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
 .example-mark {
+  padding: 0 2px;
+  border-radius: 3px;
   background: var(--hl);
   box-shadow: inset 0 -2px 0 var(--hl-edge);
   font-weight: 600;
-  border-radius: 2px;
 }
 
 .example-src {
   display: block;
-  margin-top: 7px;
+  margin-top: 6px;
+  color: var(--mut);
   font-family: var(--font-sans);
   font-size: 11.5px;
-  color: var(--mut);
 }
 
 .taglist {
@@ -723,10 +771,9 @@ a:hover {
 .timeline {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   margin: 12px 0;
   font-size: 12.5px;
-  color: var(--fg);
   font-variant-numeric: tabular-nums;
 }
 
@@ -747,9 +794,9 @@ a:hover {
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
   background: var(--soft);
+  color: var(--mut);
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--mut);
 }
 
 .pill.news {
@@ -784,6 +831,14 @@ a:hover {
 
 /* ---------------------------------------------------------------- 列表 */
 
+/*
+ * 翻页／换筛选时整块重播一次进场动画（组件上挂 key）。
+ * 不给每一行做动画 —— 行数多的时候会很吵。
+ */
+.list-anim {
+  animation: viewin var(--slow) var(--ease);
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -796,8 +851,8 @@ a:hover {
   color: var(--mut);
   font-size: 11.5px;
   font-weight: 650;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
+  text-transform: uppercase;
   text-align: left;
 }
 
@@ -824,9 +879,9 @@ a:hover {
 }
 
 .trans-cell {
+  max-width: 460px;
   color: var(--mut);
   font-size: 13.5px;
-  max-width: 460px;
 }
 
 .phon-cell {
@@ -850,7 +905,7 @@ a:hover {
   padding: 14px 10px;
   margin: 0 -10px;
   border-bottom: 1px solid var(--line);
-  border-radius: var(--r-sm);
+  border-radius: var(--r);
   cursor: pointer;
   transition: background-color var(--fast) var(--ease);
 }
@@ -864,8 +919,8 @@ a:hover {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  font-size: 12.5px;
   color: var(--mut);
+  font-size: 12.5px;
 }
 
 .textrow-src {
@@ -889,8 +944,8 @@ a:hover {
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-  font-size: 12.5px;
   color: var(--mut);
+  font-size: 12.5px;
 }
 
 /* 分页 */
@@ -911,6 +966,7 @@ a:hover {
 
 /* ---------------------------------------------------------------- 记录 */
 
+/* 折叠样式模仿 gtd-manager：箭头 SVG 转 90°，高度用 grid-template-rows 动画。 */
 .log {
   list-style: none;
 }
@@ -920,7 +976,7 @@ a:hover {
 }
 
 .log-item:last-child {
-  border-bottom: none;
+  border-bottom: 0;
 }
 
 .log-row {
@@ -928,18 +984,20 @@ a:hover {
   align-items: center;
   gap: 9px;
   flex-wrap: wrap;
-  padding: 7px 4px;
+  padding: 8px 6px;
+  margin: 0 -6px;
+  border-radius: var(--r-sm);
   font-size: 12.5px;
-}
-
-.log-row.clickable {
   cursor: pointer;
-  border-radius: 6px;
   transition: background-color var(--fast) var(--ease);
 }
 
-.log-row.clickable:hover {
+.log-row:hover {
   background: var(--soft);
+}
+
+.log-row.head {
+  color: var(--fg);
 }
 
 .log-time {
@@ -957,39 +1015,85 @@ a:hover {
   font-family: var(--font-serif);
   font-size: 14.5px;
   font-weight: 600;
+  transition: color var(--fast) var(--ease);
 }
 
 .log-word:hover {
+  color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
 .log-text {
-  max-width: 200px;
+  max-width: 190px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--mut);
 }
 
-.log-caret {
+/*
+ * 折叠箭头：指向右，展开时转 90° 指向下。
+ * transform-box: view-box 让旋转围绕 SVG 自身中心，
+ * 否则会绕外框原点转，看着像被甩出去。
+ */
+.chev {
+  flex: none;
+  width: 15px;
+  height: 15px;
   margin-left: auto;
   color: var(--mut);
-  font-size: 10px;
+  transform-box: view-box;
+  transform-origin: center;
+  transition:
+    transform var(--slow) var(--ease),
+    color var(--fast) var(--ease);
 }
 
-.log-empty {
-  margin-top: 6px;
-  color: var(--mut);
-  font-size: 12.5px;
+.log-row:hover .chev {
+  color: var(--fg);
 }
 
+.chev.is-open {
+  transform: rotate(90deg);
+}
+
+/*
+ * 展开区：0fr → 1fr。这样能真正动画到「内容自身的高度」，
+ * 不需要预先测量。
+ * 内层的 padding 必须跟着一起收 —— 盒子的高度不可能小于 padding，
+ * 不收的话动画会停在 padding 那一档，等内容被移除才啪地归零。
+ */
+.log-open {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--slow) var(--ease),
+    opacity var(--slow) var(--ease);
+}
+
+.log-open.in {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.log-open-in {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 0 0 6px;
+  transition: padding var(--slow) var(--ease);
+}
+
+.log-open.in .log-open-in {
+  padding: 8px 0 12px 6px;
+}
+
+/* 展开详情：需要底色的一块，内边距必须留够 */
 .log-detail {
-  padding: 8px 10px 10px 22px;
-  margin: 0 0 8px;
-  border-radius: var(--r-sm);
+  padding: 12px 14px;
+  border-radius: var(--r);
   background: var(--soft);
-  animation: viewin var(--fast) var(--ease);
 }
 
 .log-detail-row {
@@ -1008,6 +1112,47 @@ a:hover {
   font-family: var(--font-serif);
 }
 
+.log-empty {
+  margin-top: 6px;
+  color: var(--mut);
+  font-size: 12.5px;
+}
+
+/* ---------------------------------------------------------------- 分段 */
+
+/*
+ * 分段：扁平，靠分隔线。**不用卡片** —— 一屏五六张圆角卡片会非常吵。
+ * 需要底色的只有展开详情／答案行／提示条那几处「局部高亮」。
+ */
+.section {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.section:first-child {
+  padding-top: 4px;
+}
+
+.section:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.section h2 {
+  margin-bottom: 12px;
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.section .desc {
+  margin: 10px 0 0;
+  color: var(--mut);
+  font-size: 12.5px;
+}
+
 /* ---------------------------------------------------------------- 复习 */
 
 .review {
@@ -1016,11 +1161,9 @@ a:hover {
 }
 
 .plan-summary {
-  padding: 16px 18px;
-  margin-bottom: 20px;
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  background: var(--soft);
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
 }
 
 .plan-summary h2 {
@@ -1036,28 +1179,24 @@ a:hover {
 }
 
 .plan-text {
-  padding: 6px 11px;
+  padding: 5px 11px;
   border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: var(--bg);
-  font-size: 12.5px;
+  border-radius: var(--r-pill);
   color: var(--mut);
+  font-size: 12.5px;
 }
 
 .qcard {
-  padding: 24px 26px;
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  background: var(--panel);
+  animation: viewin var(--slow) var(--ease);
 }
 
 .q-progress {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 18px;
-  font-size: 12.5px;
+  margin-bottom: 20px;
   color: var(--mut);
+  font-size: 12.5px;
 }
 
 .progress-bar {
@@ -1089,7 +1228,7 @@ a:hover {
 
 .answer-reveal {
   padding: 0 2px;
-  border-radius: 2px;
+  border-radius: 3px;
   background: var(--hl);
   box-shadow: inset 0 -2px 0 var(--hl-edge);
   font-weight: 650;
@@ -1097,8 +1236,7 @@ a:hover {
 
 .ctx {
   padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
+  border-radius: var(--r);
   background: var(--soft);
   font-family: var(--font-serif);
   font-size: 18px;
@@ -1107,22 +1245,27 @@ a:hover {
 
 .ctx-word {
   padding: 0 2px;
-  border-radius: 2px;
+  border-radius: 3px;
   background: var(--sel);
   box-shadow: inset 0 -2px 0 var(--lv2);
   font-weight: 650;
 }
 
+/*
+ * 写单词的输入框：跟随参照项目的 .field —— 无衬线、15px、统一圆角。
+ * 用衬线大字会让人以为这是「正文里的一段」，而不是一个可以打字的框。
+ */
 .q-input {
   width: 100%;
-  margin-top: 20px;
-  padding: 11px 14px;
+  min-height: 44px;
+  margin-top: 18px;
+  padding: 0 14px;
   border: 1px solid var(--stroke);
-  border-radius: var(--r-sm);
-  background: var(--soft);
+  border-radius: var(--r);
+  background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-serif);
-  font-size: 19px;
+  font-family: var(--font-sans);
+  font-size: 15px;
   outline: none;
   transition:
     border-color var(--fast) var(--ease),
@@ -1131,8 +1274,6 @@ a:hover {
 
 .q-input::placeholder {
   color: var(--mut);
-  font-family: var(--font-sans);
-  font-size: 14px;
 }
 
 .q-input:focus {
@@ -1142,14 +1283,15 @@ a:hover {
 
 .q-hint {
   margin-top: 9px;
-  font-size: 13px;
   color: var(--mut);
+  font-size: 13px;
 }
 
+/* 答案行：一块底色，内边距要留够，否则文字贴着边 */
 .q-answer-line {
   margin-top: 20px;
-  padding: 13px 15px;
-  border-radius: var(--r-sm);
+  padding: 14px 16px;
+  border-radius: var(--r);
   background: var(--accent-soft);
   font-size: 14.5px;
 }
@@ -1160,15 +1302,10 @@ a:hover {
   color: var(--accent);
 }
 
-/*
- * 并列按钮一律同款 —— 熟练程度三选一就是这种情况。
- * 只保留图标位（键盘 1/2/3），不靠颜色区分：
- * 给「没想起来」配红色会让人以为那是危险操作，而不是「如实回答」。
- */
 .grade-row {
   display: flex;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 18px;
   flex-wrap: wrap;
 }
 
@@ -1178,7 +1315,7 @@ a:hover {
   height: auto;
   padding: 11px 14px;
   border: 1px solid var(--stroke);
-  border-radius: var(--r-sm);
+  border-radius: var(--r);
   background: var(--bg);
   text-align: left;
   transition:
@@ -1224,25 +1361,18 @@ a:hover {
   font-size: 12.5px;
 }
 
-/* ---------------------------------------------------------------- 面板/提示 */
-
-.panel-card,
-.card-section + .card-section {
-  margin-top: 22px;
-}
+/* ---------------------------------------------------------------- 提示 */
 
 .notice {
-  padding: 10px 13px;
-  margin-top: 12px;
-  border-left: 2px solid var(--stroke);
-  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  padding: 11px 14px;
+  margin-top: 14px;
+  border-radius: var(--r);
   background: var(--soft);
   color: var(--mut);
   font-size: 12.5px;
 }
 
 .notice.warn {
-  border-left-color: var(--warn);
   background: #2a2317;
   color: var(--warn);
 }
@@ -1253,9 +1383,8 @@ a:hover {
   gap: 12px;
   max-width: 720px;
   margin-bottom: 18px;
-  padding: 12px 16px;
-  border: 1px solid #4a2a26;
-  border-radius: var(--r-sm);
+  padding: 13px 16px;
+  border-radius: var(--r);
   background: #2a1a18;
   color: var(--danger);
   font-size: 14px;
@@ -1302,7 +1431,7 @@ a:hover {
   min-width: 160px;
   max-width: 300px;
   height: var(--btn-h);
-  padding: 0 13px;
+  padding: 0 14px;
   border: 1px solid var(--stroke);
   border-radius: var(--r-pill);
   background: var(--soft);
@@ -1321,6 +1450,27 @@ a:hover {
 .search:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* ---------------------------------------------------------------- 视图容器 */
+
+/*
+ * 滚动交给 .content / .panel，这些只是语义容器 ——
+ * 内外各写一次 overflow 会出现双滚动条。
+ */
+.wrap,
+.reader-wrap,
+.review-wrap {
+  display: block;
+}
+
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.page-narrow {
+  max-width: 720px;
 }
 
 /* ---------------------------------------------------------------- 窄屏 */
@@ -1379,6 +1529,14 @@ a:hover {
     width: auto;
     padding: 14px 18px 60px;
     border-left: 0;
+    animation: panelup var(--slow) var(--ease);
+  }
+
+  @keyframes panelup {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
   }
 }
 
@@ -1388,25 +1546,4 @@ a:hover {
     animation: none !important;
     transition: none !important;
   }
-}
-
-/* ---------------------------------------------------------------- 视图容器 */
-
-/*
- * 滚动交给 .content / .panel 处理，这些只是语义容器 ——
- * 外层内层各写一次 overflow 会出现双滚动条。
- */
-.wrap,
-.reader-wrap,
-.review-wrap {
-  display: block;
-}
-
-.page {
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.page-narrow {
-  max-width: 720px;
 }

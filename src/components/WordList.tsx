@@ -121,7 +121,8 @@ export function WordList({ onOpenWord }: Props) {
         {rows?.total === 0 && <p className="empty">没有匹配的词</p>}
 
         {rows && rows.total > 0 && (
-          <table className="table">
+          /* key 让翻页 / 换筛选 / 改搜索词时整块重播进场动画 */
+          <table className="table list-anim" key={`${stage}-${q}-${page}`}>
             <thead>
               <tr>
                 <th>单词</th>

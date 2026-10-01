@@ -4,8 +4,9 @@
  * 文本库（按文本筛）与词卡（按词筛）展示的是同一份 activity，
  * 所以渲染也共用一处 —— 否则两处的「记录」迟早长得不一样。
  *
- * 每条记录都可以展开看详情：复习要能回答「是填空还是阅读、看没看提示、
- * 当时填了什么」，读完要能回答「这次标记了哪些词」。
+ * 折叠样式模仿 gtd-manager：箭头是 SVG，展开时转 90°；
+ * 高度动画用 grid-template-rows 0fr → 1fr（能真正动画到内容高度，
+ * 不需要预先知道有多高）。
  */
 
 import { useState } from 'react';
@@ -38,6 +39,22 @@ export function GradeTag({ detail }: { detail: ActivityDetail | null }) {
   );
 }
 
+/** 折叠箭头：指向右，展开时转 90° 指向下。 */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg className={`chev${open ? ' is-open' : ''}`} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M9 5l7 7-7 7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 interface Props {
   items: ActivityItem[];
   onOpenWord?: (r: WordRequest) => void | Promise<void>;
@@ -54,33 +71,42 @@ export function ActivityLog({ items, onOpenWord, showWord = true, showText = tru
 
   return (
     <ul className="log">
-      {items.map((a) => (
-        <li key={a.id} className="log-item">
-          <div
-            className="log-row clickable"
-            onClick={() => setOpen(open === a.id ? null : a.id)}
-          >
-            <span className="log-time">{fmt(a.at)}</span>
-            <span className="log-kind">{KIND_LABEL[a.kind] ?? a.kind}</span>
-            {showWord && a.word && (
-              <button
-                className="log-word"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const w = a.word;
-                  if (w) void onOpenWord?.({ word: w });
-                }}
-              >
-                {a.word}
-              </button>
-            )}
-            {showText && a.title && <span className="log-text">{a.title.slice(0, 40)}</span>}
-            {a.kind === 'review' && <GradeTag detail={a.detail} />}
-            <span className="log-caret">{open === a.id ? '▾' : '▸'}</span>
-          </div>
-          {open === a.id && <LogDetail item={a} onOpenWord={onOpenWord} />}
-        </li>
-      ))}
+      {items.map((a) => {
+        const isOpen = open === a.id;
+        return (
+          <li key={a.id} className="log-item">
+            <div
+              className={`log-row${isOpen ? ' head' : ''}`}
+              onClick={() => setOpen(isOpen ? null : a.id)}
+            >
+              <span className="log-time">{fmt(a.at)}</span>
+              <span className="log-kind">{KIND_LABEL[a.kind] ?? a.kind}</span>
+              {showWord && a.word && (
+                <button
+                  className="log-word"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const w = a.word;
+                    if (w) void onOpenWord?.({ word: w });
+                  }}
+                >
+                  {a.word}
+                </button>
+              )}
+              {showText && a.title && <span className="log-text">{a.title.slice(0, 40)}</span>}
+              {a.kind === 'review' && <GradeTag detail={a.detail} />}
+              <Chevron open={isOpen} />
+            </div>
+
+            {/* 折叠区：0fr → 1fr，能真正动画到内容自身的高度 */}
+            <div className={`log-open${isOpen ? ' in' : ''}`}>
+              <div className="log-open-in">
+                <LogDetail item={a} onOpenWord={onOpenWord} />
+              </div>
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -118,11 +144,7 @@ function LogDetail({
         {words.length > 0 && (
           <div className="taglist">
             {words.map((w) => (
-              <button
-                key={w}
-                className="tagword"
-                onClick={() => void onOpenWord?.({ word: w })}
-              >
+              <button key={w} className="tagword" onClick={() => void onOpenWord?.({ word: w })}>
                 {w}
               </button>
             ))}
@@ -142,11 +164,12 @@ function LogDetail({
     );
   }
 
-  // mark / unmark / read_start：能说的就是出自哪篇
   return (
     <div className="log-detail">
       <Row label="出自" value={item.title ?? '（无关联文本）'} />
-      {item.kind === 'unmark' && <Row label="结果" value={d?.archived ? '归档（保留复习进度）' : '删除'} />}
+      {item.kind === 'unmark' && (
+        <Row label="结果" value={d?.archived ? '归档（保留复习进度）' : '删除'} />
+      )}
     </div>
   );
 }

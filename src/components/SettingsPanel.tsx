@@ -74,7 +74,7 @@ export function SettingsPanel({ state, onStateChange }: Props) {
       <div className="page page-narrow">
         {error && <div className="error">{error}</div>}
 
-        <div className="panel">
+        <div className="section">
           <h2>我的水平</h2>
           <div className="chips">
             {levelChoices.map((l) => (
@@ -90,7 +90,7 @@ export function SettingsPanel({ state, onStateChange }: Props) {
           </div>
         </div>
 
-        <div className="panel">
+        <div className="section">
           <h2>题材偏好</h2>
           <div className="chips">
             {Object.values(state.categoriesMeta).map((c) => (
@@ -106,7 +106,7 @@ export function SettingsPanel({ state, onStateChange }: Props) {
           </div>
         </div>
 
-        <div className="panel">
+        <div className="section">
           <h2>语料库</h2>
           <div className="variants">
             <span className="variant">
@@ -147,7 +147,7 @@ export function SettingsPanel({ state, onStateChange }: Props) {
           )}
         </div>
 
-        <div className="panel">
+        <div className="section">
           <h2>学习统计</h2>
           <div className="variants">
             <span className="variant">

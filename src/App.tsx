@@ -200,7 +200,12 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-/** 面板顶部：返回一层 + 关闭整个面板。 */
+/**
+ * 面板顶部：返回上一层 / 关闭整个面板。
+ *
+ * 只用 SVG 图标不写文字 —— 两个按钮靠位置区分（左返回、右关闭），
+ * 文字挤在 424px 的面板顶上会把标题压没。上一层的名字放 tooltip 里。
+ */
 function PanelBar({
   label,
   onBack,
@@ -212,14 +217,21 @@ function PanelBar({
 }) {
   return (
     <div className="panel-bar">
-      <button className="panel-back" onClick={onBack} title="返回上一层">
-        ← {label ? `返回 ${label}` : '关闭'}
+      <button
+        className="icon-btn"
+        onClick={onBack}
+        title={label ? `返回 ${label}` : '返回'}
+        aria-label={label ? `返回 ${label}` : '返回'}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
       </button>
-      {label && (
-        <button className="panel-close" onClick={onClose} title="关闭面板">
-          ✕
-        </button>
-      )}
+      <button className="icon-btn" onClick={onClose} title="关闭面板" aria-label="关闭面板">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   );
 }

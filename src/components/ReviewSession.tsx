@@ -116,7 +116,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
         {error && <div className="error">{error}</div>}
 
         {plan && plan.dueCount === 0 && (
-          <div className="panel">
+          <div className="section">
             <h2>没有到期的词</h2>
             <button className="btn primary" onClick={() => void load()}>
               重新检查
@@ -125,7 +125,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
         )}
 
         {plan && plan.dueCount > 0 && plan.items.length === 0 && (
-          <div className="panel">
+          <div className="section">
             <h2>语料库里没有这些词</h2>
             <p className="desc">
               到期 {plan.dueCount} / 语料 {state.corpus.texts} 篇
@@ -137,7 +137,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
         )}
 
         {plan && plan.items.length > 0 && !item && (
-          <div className="panel">
+          <div className="section">
             <h2>本轮完成</h2>
             <p className="desc">
               {plan.items.length} 词 / {plan.texts.length} 篇
@@ -165,7 +165,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
               </div>
             </div>
 
-            <div className="qcard">
+            <div className="qcard" key={idx}>
               <div className="q-progress">
                 <span>
                   {idx + 1} / {plan.items.length}

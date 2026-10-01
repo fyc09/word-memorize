@@ -103,7 +103,8 @@ export function TextLibrary({ onOpenText, onStateChange }: Props) {
         {items && items.length === 0 && <p className="empty">没有文本</p>}
 
         {items && items.length > 0 && (
-          <ul className="textlist">
+          /* key 让翻页 / 换筛选时整块重播一次进场动画 */
+          <ul className="textlist list-anim" key={`${filter}-${page}`}>
             {items.map((t) => (
               <li key={t.id} className="textrow" onClick={() => onOpenText(t.id)}>
                 <div className="textrow-head">
