@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, PAGE } from '../api';
+import { useDelayedFlag } from '../hooks/useDelayedFlag';
 import { setParams, useRoute } from '../router';
 import type { TextListItem } from '../types';
 import { Pager } from './Pager';
+import { Spinner } from './Spinner';
 
 interface Props {
   /** 点开某篇 → 打开侧边栏文本面板（不会抢占当前阅读） */
@@ -43,6 +45,24 @@ export function TextLibrary({ onOpenText, onStateChange }: Props) {
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState({ all: 0, reading: 0, done: 0, unread: 0 });
   const [error, setError] = useState<string | null>(null);
+  /**
+   * 数据版本号：只在新数据到位时 +1，用它作列表的 key 来重播进场动画。
+   *
+   * 不能拿筛选条件／页码当 key —— 那样点下去的一瞬间就重挂载了，
+   * 动画播在旧数据上，真正的新内容反而是静默替换的。
+   */
+  const [gen, setGen] = useState(0);
+  /**
+   * 加载状态从参数派生，而不是在 effect 里 setLoading(true)。
+   *
+   * 后者晚一帧：点下去那次渲染里 loading 还是 false，会把旧数据先画一帧
+   * （useEffect 在浏览器绘制之后才跑），看上去就是「闪一下旧内容再转圈」。
+   * 派生的话，参数一变就立刻是 loading。
+   */
+  const paramsKey = `${filter}|${offset}`;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  // 本地查询常在 100ms 内返回 —— 直接显示只会闪一下，延迟到真的等久了再显示
+  const loading = useDelayedFlag(loadedKey !== paramsKey);
 
   const load = useCallback(async () => {
     try {
@@ -51,10 +71,14 @@ export function TextLibrary({ onOpenText, onStateChange }: Props) {
       setTotal(r.total);
       setCounts(r.counts);
       setError(null);
+      setGen((g) => g + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      // 失败也算这次请求结束了，不然加载动画会一直转
+      setLoadedKey(paramsKey);
     }
-  }, [filter, offset]);
+  }, [filter, offset, paramsKey]);
 
   useEffect(() => {
     void load();
@@ -93,18 +117,18 @@ export function TextLibrary({ onOpenText, onStateChange }: Props) {
 
         {error && <div className="error">{error}</div>}
 
-        {!items && (
+        {/* 换筛选 / 翻页时用加载动画占位 —— 全局统一这一个指示器 */}
+        {loading && (
           <div className="loading">
-            <div className="spinner" />
-            载入中…
+            <Spinner />
           </div>
         )}
 
-        {items && items.length === 0 && <p className="empty">没有文本</p>}
+        {!loading && items && items.length === 0 && <p className="empty">没有文本</p>}
 
-        {items && items.length > 0 && (
-          /* key 让翻页 / 换筛选时整块重播一次进场动画 */
-          <ul className="textlist list-anim" key={`${filter}-${page}`}>
+        {!loading && items && items.length > 0 && (
+          /* key 用数据版本号：新数据到位才重播进场动画 */
+          <ul className="textlist list-anim" key={gen}>
             {items.map((t) => (
               <li key={t.id} className="textrow" onClick={() => onOpenText(t.id)}>
                 <div className="textrow-head">
@@ -136,7 +160,9 @@ export function TextLibrary({ onOpenText, onStateChange }: Props) {
           </ul>
         )}
 
-        <Pager total={total} offset={offset} limit={PAGE} onChange={goPage} />
+        {!loading && (
+          <Pager total={total} offset={offset} limit={PAGE} onChange={goPage} />
+        )}
       </div>
     </div>
   );

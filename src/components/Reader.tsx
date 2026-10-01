@@ -4,6 +4,7 @@ import { levelVar } from '../types';
 import type { AppState, LearnPayload, MarkedEntry, Segment, TextMeta, WordRequest } from '../types';
 import { TextBody } from './TextBody';
 import { MarkedSummary } from './MarkedSummary';
+import { Spinner } from './Spinner';
 
 interface Props {
   state: AppState;
@@ -123,7 +124,7 @@ export function Reader({ state, onStateChange, onOpenWord }: Props) {
 
         {loading && (
           <div className="loading">
-            <div className="spinner" />
+            <Spinner />
             载入中…
           </div>
         )}

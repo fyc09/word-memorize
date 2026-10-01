@@ -4,6 +4,7 @@ import { levelVar } from '../types';
 import type { ActivityItem, Paged, TextDetail, WordRequest } from '../types';
 import { ActivityLog, fmt } from './ActivityLog';
 import { Pager } from './Pager';
+import { Spinner } from './Spinner';
 
 interface Props {
   textId: number;
@@ -76,7 +77,7 @@ export function TextPanel({ textId, onOpenWord, onStateChange, onGoLearn }: Prop
     return (
       <aside className="side wide">
         <div className="loading">
-          <div className="spinner" />
+          <Spinner />
           载入中…
         </div>
       </aside>

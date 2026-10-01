@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import type { AppState, GradeKey, ReviewItem, ReviewPlan } from '../types';
+import { Spinner } from './Spinner';
 
 interface Props {
   state: AppState;
@@ -103,7 +104,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
     return (
       <div className="review-wrap">
         <div className="loading">
-          <div className="spinner" />
+          <Spinner />
           准备中…
         </div>
       </div>

@@ -23,6 +23,7 @@ import { TextPanel } from './components/TextPanel';
 import { WordList } from './components/WordList';
 import { SettingsPanel } from './components/SettingsPanel';
 import { WordCard } from './components/WordCard';
+import { Spinner } from './components/Spinner';
 
 const TAB_LABEL: Record<Tab, string> = {
   learn: '阅读',
@@ -101,7 +102,7 @@ export function App() {
   if (!booted) {
     return (
       <div className="boot">
-        <div className="spinner" />
+        <Spinner />
         载入中…
       </div>
     );

@@ -1,6 +1,7 @@
 import { levelVar } from '../types';
 import type { WordDetail } from '../types';
 import { ActivityLog } from './ActivityLog';
+import { Spinner } from './Spinner';
 
 /** 把句子高亮出目标词，用于「显示正确答案」这一步。 */
 function highlightAnswer(sentence: string, answer: string): React.ReactNode {
@@ -27,7 +28,7 @@ export function WordCard({ detail, loading, marked, onMark, onUnmark }: Props) {
   if (loading) {
     return (
       <div className="loading">
-        <div className="spinner" />
+        <Spinner />
         查询中…
       </div>
     );

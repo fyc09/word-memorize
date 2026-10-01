@@ -167,15 +167,25 @@ npm run dev
    而不是「如实回答」。
 3. **动效克制且统一**：`--ease: cubic-bezier(.22,1,.36,1)` / `--fast:.18s` /
    `--slow:.32s`。视图进场 `fade + translateY(6px)`，面板 `translateX(24px)`，
-   胶囊按钮按下 `scale(.96)`。翻页与换筛选时整块列表重播进场（组件上挂 `key`）。
-   `prefers-reduced-motion` 时全关。
+   胶囊按钮按下 `scale(.96)`。`prefers-reduced-motion` 时全关。
+
+   **列表的进场动画要跟着「数据到位」走，不是跟着点击走。** 拿筛选条件当 `key`
+   会在点下去那一瞬间就重挂载，动画播在旧数据上，而真正的新内容反而静默替换。
+   所以用数据版本号（`gen`）作 key，只有新数据到了才 +1。
+   同理，`loading` 要从参数**派生**而不是在 effect 里 setState —— 后者晚一帧，
+   会把旧数据先画一帧（`useEffect` 在浏览器绘制之后才跑），看着就是「闪一下」。
+   另外防抖只对「改搜索词」生效：翻页、换筛选是单次明确意图，没有理由白等 220ms。
 4. **折叠用 `grid-template-rows: 0fr → 1fr`**（学 gtd-manager），能真正动画到
    内容自身高度，不需要预先测量。关键是内层的 padding 要**跟着一起收** ——
    盒子的高度不可能小于 padding，不收的话动画会停在 padding 那一档。
    箭头是 SVG，展开时转 90°（`transform-box: view-box` 保证绕自身中心转）。
 
-另外两条细节：
+另外三条细节：
 
+- **加载指示全局只有一个**（`components/Spinner.tsx`，SVG 弧线）。不是「CSS 画半个边框
+  再转」—— 那样弧线端点只能是方的，深色底上看着很脏。
+  但它默认**不显示**：本地查询常在 100ms 内返回，直接显示只会闪一下
+  （搜索框「输入即搜」尤其明显），所以用 `useDelayedFlag` 超过 150ms 才显示。
 - **滚动条隐藏**（`scrollbar-width: none` + `::-webkit-scrollbar`）。这是阅读类界面，
   滑块横在正文旁边很碍眼；仍可滚动、仍支持键盘与触摸板。
 - **复选框要手画**。全局为了统一输入框外观把 `input` 的 `appearance` 去掉了，

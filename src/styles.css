@@ -1409,12 +1409,14 @@ input[type="checkbox"]:checked::after {
   text-align: center;
 }
 
-.spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--line);
-  border-top-color: var(--accent);
-  border-radius: 50%;
+/*
+ * 加载指示：全局统一就这一个（SVG 弧线，见 components/Spinner.tsx）。
+ * 不是「CSS 画半个边框再转」—— 那样弧线端点只能是方的，深色底上看着很脏。
+ */
+.spin {
+  flex: none;
+  color: var(--accent);
+  transform-origin: center;
   animation: spin 0.75s linear infinite;
 }
 

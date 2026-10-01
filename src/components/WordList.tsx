@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, PAGE } from '../api';
+import { useDelayedFlag } from '../hooks/useDelayedFlag';
 import { setParams, useRoute } from '../router';
 import { levelVar } from '../types';
 import type { Paged, StageCounts, WordRequest, WordRow } from '../types';
 import { Pager } from './Pager';
+import { Spinner } from './Spinner';
 
 interface Props {
   onOpenWord: (r: WordRequest) => void | Promise<void>;
@@ -44,6 +46,17 @@ export function WordList({ onOpenWord }: Props) {
   const [rows, setRows] = useState<Paged<WordRow> | null>(null);
   const [counts, setCounts] = useState<StageCounts | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * 数据版本号：只在新数据到位时 +1，用它作列表的 key 来重播进场动画。
+   * 拿筛选条件／页码当 key 会让动画播在旧数据上。
+   */
+  const [gen, setGen] = useState(0);
+  /**
+   * 加载态从「请求真的发出去了」开始算，而不是从参数变化算。
+   * 搜索框有 220ms 防抖，算进去的话每敲一个键都会闪一次转圈。
+   */
+  const [fetching, setFetching] = useState(false);
+  const loading = useDelayedFlag(fetching, 150);
   const reqId = useRef(0);
 
   const loadCounts = useCallback(async () => {
@@ -59,20 +72,30 @@ export function WordList({ onOpenWord }: Props) {
   }, [loadCounts]);
 
   // 输入即搜（防抖 220ms）—— 40 万词条，不值得让用户按回车
+  const prevQ = useRef(q);
   useEffect(() => {
+    // 防抖只对「改搜索词」生效。翻页和换筛选没有理由白等 220ms ——
+    // 那是为连打的键盘准备的，点按钮是单次明确意图。
+    const qChanged = prevQ.current !== q;
+    prevQ.current = q;
+
     const id = ++reqId.current;
     const timer = setTimeout(() => {
+      setFetching(true);
       void (async () => {
         try {
           const r = await api.words({ q, stage, offset, limit: PAGE });
           if (reqId.current !== id) return;
           setRows(r);
           setError(null);
+          setGen((g) => g + 1);
         } catch (e) {
           if (reqId.current === id) setError(e instanceof Error ? e.message : String(e));
+        } finally {
+          if (reqId.current === id) setFetching(false);
         }
       })();
-    }, 220);
+    }, qChanged ? 220 : 0);
     return () => clearTimeout(timer);
   }, [q, stage, offset]);
 
@@ -118,11 +141,19 @@ export function WordList({ onOpenWord }: Props) {
         </div>
 
         {error && <div className="error">{error}</div>}
-        {rows?.total === 0 && <p className="empty">没有匹配的词</p>}
 
-        {rows && rows.total > 0 && (
-          /* key 让翻页 / 换筛选 / 改搜索词时整块重播进场动画 */
-          <table className="table list-anim" key={`${stage}-${q}-${page}`}>
+        {/* 加载中：用换文章那个加载动画占位（全局统一这一个指示器） */}
+        {loading && (
+          <div className="loading">
+            <Spinner />
+          </div>
+        )}
+
+        {!loading && rows?.total === 0 && <p className="empty">没有匹配的词</p>}
+
+        {!loading && rows && rows.total > 0 && (
+          /* key 用数据版本号：新数据到位才重播进场动画 */
+          <table className="table list-anim" key={gen}>
             <thead>
               <tr>
                 <th>单词</th>
@@ -174,7 +205,7 @@ export function WordList({ onOpenWord }: Props) {
           </table>
         )}
 
-        {rows && (
+        {!loading && rows && (
           <Pager total={rows.total} offset={offset} limit={PAGE} onChange={goPage} />
         )}
       </div>
