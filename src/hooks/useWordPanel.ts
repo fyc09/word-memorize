@@ -28,7 +28,7 @@ export function useWordPanel({ onStateChange, onError }: Options) {
       setLoading(true);
       const id = ++reqId.current;
       try {
-        const d = await api.word(r.word, r.textId, r.level);
+        const d = await api.word(r.word, r.level);
         if (reqId.current === id) setDetail(d);
       } catch (e) {
         if (reqId.current === id) onError(e instanceof Error ? e.message : String(e));
@@ -52,9 +52,9 @@ export function useWordPanel({ onStateChange, onError }: Options) {
     try {
       if (detail?.card) {
         await api.unmark(request.word);
-        setDetail(await api.word(request.word, request.textId, request.level));
+        setDetail(await api.word(request.word, request.level));
       } else {
-        const res = await api.mark(request.word, request.textId);
+        const res = await api.mark(request.word);
         setDetail(res.detail);
       }
       await onStateChange();
@@ -62,22 +62,6 @@ export function useWordPanel({ onStateChange, onError }: Options) {
       onError(e instanceof Error ? e.message : String(e));
     }
   }, [request, detail, onStateChange, onError]);
-
-  /**
-   * 正文里标记后同步面板：如果面板正开着同一个词，把卡片刷新成已标记。
-   * @param word
-   */
-  const syncMarked = useCallback(
-    async (word: string) => {
-      if (!request || request.word !== word) return;
-      try {
-        setDetail(await api.word(word, request.textId, request.level));
-      } catch {
-        /* 同步失败不影响阅读，忽略 */
-      }
-    },
-    [request],
-  );
 
   return {
     request,
@@ -87,6 +71,5 @@ export function useWordPanel({ onStateChange, onError }: Options) {
     open,
     close,
     toggleMark,
-    syncMarked,
   };
 }

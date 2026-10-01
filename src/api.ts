@@ -78,8 +78,12 @@ export const api = {
 
   // ------------------------------------------------------------ 单词
 
-  word: (word: string, excludeTextId?: number, level?: number) =>
-    req<WordDetail>(`/api/word${qs({ word, excludeTextId, level })}`),
+  /**
+   * 词条详情。例句会自动排除「当前正在读的那一篇」，
+   * 这样点开一个词看到的总是其它文章里的用法。
+   */
+  word: (word: string, level?: number) =>
+    req<WordDetail>(`/api/word${qs({ word, level })}`),
 
   /** textId 可缺 —— 从词库/生词本里标记时并没有「出自哪篇」的上下文 */
   mark: (word: string, textId?: number, sentenceId?: number) =>

@@ -9,13 +9,11 @@ interface Props {
   state: AppState;
   onStateChange: () => void | Promise<void>;
   onOpenWord: (r: WordRequest) => void | Promise<void>;
-  /** 标记成功后告知外层，让开着的词卡也同步成「已标记」 */
-  onMarked?: (word: string) => void | Promise<void>;
 }
 
 type Payload = LearnPayload & { text: TextMeta & { segments: Segment[] } };
 
-export function Reader({ state, onStateChange, onOpenWord, onMarked }: Props) {
+export function Reader({ state, onStateChange, onOpenWord }: Props) {
   const [payload, setPayload] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
@@ -82,7 +80,6 @@ export function Reader({ state, onStateChange, onOpenWord, onMarked }: Props) {
       setMarked((prev) => new Set(prev).add(word));
       try {
         await api.mark(word, textId);
-        void onMarked?.(word);
         void onStateChange();
       } catch (e) {
         setMarked((prev) => {
@@ -93,7 +90,7 @@ export function Reader({ state, onStateChange, onOpenWord, onMarked }: Props) {
         setError(e instanceof Error ? e.message : String(e));
       }
     },
-    [onStateChange, onMarked],
+    [onStateChange],
   );
 
   const finish = useCallback(async () => {
@@ -112,7 +109,7 @@ export function Reader({ state, onStateChange, onOpenWord, onMarked }: Props) {
     (word: string, level: number, _surface: string) => {
       if (!text) return;
       if (clickToMark && level >= 2 && !marked.has(word)) void mark(word, text.id);
-      void onOpenWord({ word, level, textId: text.id });
+      void onOpenWord({ word, level });
     },
     [text, clickToMark, marked, mark, onOpenWord],
   );
@@ -170,7 +167,6 @@ export function Reader({ state, onStateChange, onOpenWord, onMarked }: Props) {
             {summary !== null ? (
               <MarkedSummary
                 entries={summary}
-                textId={text.id}
                 onOpenWord={onOpenWord}
                 onNext={() => void load('next')}
               />

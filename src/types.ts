@@ -1,9 +1,10 @@
-/** 打开单词面板时携带的上下文。level 用于让卡片与正文颜色一致。 */
-export interface WordRequest {
-  word: string;
-  level?: number;
-  textId?: number;
-}
+/**
+ * 打开一个词。level 是它在正文里被标成的等级，用于让卡片与刚看到的颜色一致。
+ *
+ * 不再携带 textId：例句要排除哪一篇由服务端根据「当前阅读会话」决定，
+ * 客户端不需要（也不应该）知道这个上下文。
+ */
+export type WordRequest = { word: string; level?: number };
 
 /** 与后端共享的类型定义。 */
 

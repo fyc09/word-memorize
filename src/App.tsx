@@ -1,6 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
 import type { AppState, WordRequest } from './types';
+import {
+  closePeek,
+  drillPeek,
+  goBack,
+  goTab,
+  initRouter,
+  openPeek,
+  previousLabel,
+  TABS,
+  useRoute,
+  type Peek,
+  type Tab,
+} from './router';
 import { useWordPanel } from './hooks/useWordPanel';
 import { useFetchJob } from './hooks/useFetchJob';
 import { Reader } from './components/Reader';
@@ -11,26 +24,24 @@ import { WordList } from './components/WordList';
 import { SettingsPanel } from './components/SettingsPanel';
 import { WordCard } from './components/WordCard';
 
-export type Tab = 'learn' | 'review' | 'texts' | 'words' | 'settings';
+const TAB_LABEL: Record<Tab, string> = {
+  learn: '阅读',
+  review: '复习',
+  texts: '文本库',
+  words: '单词',
+  settings: '设置',
+};
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'learn', label: '阅读' },
-  { key: 'review', label: '复习' },
-  { key: 'texts', label: '文本库' },
-  { key: 'words', label: '单词' },
-  { key: 'settings', label: '设置' },
-];
+/** 上一层叫什么 —— 「返回」按钮靠它告诉用户会回到哪。 */
+function peekLabel(peek: Peek): string {
+  return peek.kind === 'word' ? peek.word : '文章';
+}
 
 export function App() {
+  const route = useRoute();
   const [state, setState] = useState<AppState | null>(null);
-  const [tab, setTab] = useState<Tab>('learn');
   const [error, setError] = useState<string | null>(null);
   const [booted, setBooted] = useState(false);
-
-  /** 侧边栏同时只显示一个东西：文本面板 或 词卡。 */
-  const [textPanelId, setTextPanelId] = useState<number | null>(null);
-  /** 词卡关掉后要回到哪个文本面板（从文本面板里点词进来时才有）。 */
-  const [wordBackTo, setWordBackTo] = useState<number | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -44,60 +55,52 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    initRouter();
+  }, []);
+
+  useEffect(() => {
     void reload();
   }, [reload]);
 
   const onError = useCallback((message: string) => setError(message), []);
-  const panel = useWordPanel({ onStateChange: reload, onError });
+  const word = useWordPanel({ onStateChange: reload, onError });
   useFetchJob(state?.fetchJob, reload);
 
-  const openWord = useCallback(
+  // 主视图里点击 = 重新起一层（丢弃之前的面板路径）
+  const openWordFromMain = useCallback(
     (r: WordRequest) => {
-      setTextPanelId(null);
-      setWordBackTo(null);
-      void panel.open(r);
+      const peek: Peek = { kind: 'word', word: r.word, level: r.level };
+      openPeek(peek);
+      void word.open(peek);
     },
-    [panel],
+    [word],
   );
 
-  /** 文本库点开一篇 → 打开文本面板，**不**动当前阅读会话。 */
-  const openText = useCallback(
-    (id: number) => {
-      panel.close();
-      setWordBackTo(null);
-      setTextPanelId(id);
+  const openTextFromMain = useCallback((id: number) => {
+    openPeek({ kind: 'text', id });
+  }, []);
+
+  // 面板里点击 = 压一层，并记下上一层叫什么（返回按钮的文案靠它）
+  const openWordFromPanel = useCallback(
+    (r: WordRequest) => {
+      const peek: Peek = { kind: 'word', word: r.word, level: r.level };
+      const cur = route.peek;
+      drillPeek(peek, cur ? peekLabel(cur) : undefined);
+      void word.open(peek);
     },
-    [panel],
+    [route.peek, word],
   );
 
-  const closeWord = useCallback(() => {
-    panel.close();
-    if (wordBackTo !== null) {
-      setTextPanelId(wordBackTo);
-      setWordBackTo(null);
-    }
-  }, [panel, wordBackTo]);
-
-  /** 文本面板里点词 → 词卡顶掉面板，但记住回程。 */
-  const openWordFromText = useCallback(
-    (r: WordRequest, from: number) => {
-      setTextPanelId(null);
-      setWordBackTo(from);
-      void panel.open(r);
-    },
-    [panel],
-  );
-
-  const switchTab = (t: Tab) => {
-    setTab(t);
-    panel.close();
-    setTextPanelId(null);
-    setWordBackTo(null);
-  };
+  // URL 变了就把词卡详情同步过来（后退/前进/直接打开链接都走这条路）
+  useEffect(() => {
+    if (route.peek?.kind === 'word') void word.open(route.peek);
+    else word.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.peek?.kind === 'word' ? `${route.peek.word}:${route.peek.level}` : null]);
 
   if (!booted) {
     return (
-      <div className="loading">
+      <div className="boot">
         <div className="spinner" />
         载入中…
       </div>
@@ -108,92 +111,115 @@ export function App() {
   const reading = state?.corpus.reading ?? 0;
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand">语境背单词</div>
-        <nav className="tabs">
+    <div className="shell">
+      <nav className="nav">
+        <div className="nav-brand">语境背单词</div>
+        <div className="nav-list">
           {TABS.map((t) => (
             <button
-              key={t.key}
-              className={`tab${tab === t.key ? ' active' : ''}`}
-              onClick={() => switchTab(t.key)}
+              key={t}
+              className={`nav-item${route.tab === t ? ' on' : ''}`}
+              onClick={() => goTab(t)}
             >
-              {t.label}
-              {t.key === 'review' && due > 0 && <span className="badge">{due}</span>}
-              {t.key === 'learn' && reading > 0 && <span className="badge">1</span>}
+              {TAB_LABEL[t]}
+              {t === 'review' && due > 0 && <span className="badge">{due}</span>}
+              {t === 'learn' && reading > 0 && <span className="badge">1</span>}
             </button>
           ))}
-        </nav>
-        <div className="topbar-stats">
-          {state && (
-            <>
-              <span>
-                水平 <b>L{state.level}</b>
-              </span>
-              <span>
-                生词 <b>{state.vocab.total ?? 0}</b>
-              </span>
-              <span>
-                待验证 <b>{state.vocab.unverified ?? 0}</b>
-              </span>
-              <span>
-                语料 <b>{state.corpus.texts}</b>
-              </span>
-            </>
+        </div>
+        {state && (
+          <div className="nav-foot">
+            <Stat label="水平" value={`L${state.level}`} />
+            <Stat label="生词" value={state.vocab.total ?? 0} />
+            <Stat label="待验证" value={state.vocab.unverified ?? 0} />
+            <Stat label="语料" value={state.corpus.texts} />
+          </div>
+        )}
+      </nav>
+
+      <main className="content">
+        {error && (
+          <div className="error">
+            {error}
+            <button className="chip" onClick={() => void reload()}>
+              重试
+            </button>
+          </div>
+        )}
+
+        {/* key 让每次换页签重放一次进场动画 */}
+        <div className="view" key={route.tab}>
+          {route.tab === 'learn' && state && (
+            <Reader state={state} onStateChange={reload} onOpenWord={openWordFromMain} />
+          )}
+          {route.tab === 'review' && state && (
+            <ReviewSession state={state} onStateChange={reload} />
+          )}
+          {route.tab === 'texts' && (
+            <TextLibrary onStateChange={reload} onOpenText={openTextFromMain} />
+          )}
+          {route.tab === 'words' && <WordList onOpenWord={openWordFromMain} />}
+          {route.tab === 'settings' && state && (
+            <SettingsPanel state={state} onStateChange={reload} />
           )}
         </div>
-      </header>
+      </main>
 
-      {error && (
-        <div className="error">
-          {error}
-          <button className="btn" onClick={() => void reload()}>
-            重试
-          </button>
-        </div>
+      {route.peek && (
+        <aside className="panel" key={route.peek.kind === 'word' ? route.peek.word : `t${route.peek.id}`}>
+          <PanelBar label={previousLabel()} onBack={goBack} onClose={closePeek} />
+
+          {route.peek.kind === 'text' ? (
+            <TextPanel
+              textId={route.peek.id}
+              onOpenWord={openWordFromPanel}
+              onStateChange={reload}
+              onGoLearn={() => goTab('learn')}
+            />
+          ) : (
+            <WordCard
+              detail={word.detail}
+              loading={word.loading}
+              marked={word.marked}
+              onMark={() => void word.toggleMark()}
+              onUnmark={() => void word.toggleMark()}
+            />
+          )}
+        </aside>
       )}
+    </div>
+  );
+}
 
-      <div className="main">
-        {tab === 'learn' && state && (
-          <Reader
-            state={state}
-            onStateChange={reload}
-            onOpenWord={openWord}
-            onMarked={panel.syncMarked}
-          />
-        )}
-        {tab === 'review' && state && <ReviewSession state={state} onStateChange={reload} />}
-        {tab === 'texts' && <TextLibrary onOpenText={openText} onStateChange={reload} />}
-        {tab === 'words' && <WordList onOpenWord={openWord} />}
-        {tab === 'settings' && state && <SettingsPanel state={state} onStateChange={reload} />}
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="stat">
+      <span className="stat-k">{label}</span>
+      <span className="stat-v">{value}</span>
+    </div>
+  );
+}
 
-        {textPanelId !== null && (
-          <TextPanel
-            key={textPanelId}
-            textId={textPanelId}
-            onClose={() => setTextPanelId(null)}
-            onOpenWord={(r) => openWordFromText(r, textPanelId)}
-            onStateChange={reload}
-            onGoLearn={() => {
-              setTextPanelId(null);
-              setTab('learn');
-            }}
-          />
-        )}
-
-        {panel.request && (
-          <WordCard
-            detail={panel.detail}
-            loading={panel.loading}
-            marked={panel.marked}
-            backLabel={wordBackTo !== null ? '返回文章' : undefined}
-            onBack={wordBackTo !== null ? closeWord : undefined}
-            onMark={() => void panel.toggleMark()}
-            onUnmark={() => void panel.toggleMark()}
-            onClose={closeWord}
-          />
-        )}
-      </div>
+/** 面板顶部：返回一层 + 关闭整个面板。 */
+function PanelBar({
+  label,
+  onBack,
+  onClose,
+}: {
+  label: string | null;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="panel-bar">
+      <button className="panel-back" onClick={onBack} title="返回上一层">
+        ← {label ? `返回 ${label}` : '关闭'}
+      </button>
+      {label && (
+        <button className="panel-close" onClick={onClose} title="关闭面板">
+          ✕
+        </button>
+      )}
     </div>
   );
 }

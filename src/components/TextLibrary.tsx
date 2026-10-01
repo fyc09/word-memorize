@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, PAGE } from '../api';
+import { setParams, useRoute } from '../router';
 import type { TextListItem } from '../types';
 import { Pager } from './Pager';
 
@@ -32,8 +33,12 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export function TextLibrary({ onOpenText, onStateChange }: Props) {
-  const [filter, setFilter] = useState<Filter>('all');
-  const [offset, setOffset] = useState(0);
+  // 筛选与页码住在 URL 里：可收藏、可分享，后退能回到上一页
+  const route = useRoute();
+  const filter = (route.params.get('filter') ?? 'all') as Filter;
+  const page = Math.max(1, Number(route.params.get('page')) || 1);
+  const offset = (page - 1) * PAGE;
+
   const [items, setItems] = useState<TextListItem[] | null>(null);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState({ all: 0, reading: 0, done: 0, unread: 0 });
@@ -56,8 +61,12 @@ export function TextLibrary({ onOpenText, onStateChange }: Props) {
   }, [load]);
 
   const pick = (f: Filter) => {
-    setFilter(f);
-    setOffset(0);
+    setParams({ filter: f === 'all' ? undefined : f, page: undefined });
+  };
+
+  const goPage = (nextOffset: number) => {
+    const p = Math.floor(nextOffset / PAGE) + 1;
+    setParams({ page: p === 1 ? undefined : p });
   };
 
   return (
@@ -126,7 +135,7 @@ export function TextLibrary({ onOpenText, onStateChange }: Props) {
           </ul>
         )}
 
-        <Pager total={total} offset={offset} limit={PAGE} onChange={setOffset} />
+        <Pager total={total} offset={offset} limit={PAGE} onChange={goPage} />
       </div>
     </div>
   );

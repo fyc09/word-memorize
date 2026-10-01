@@ -68,7 +68,7 @@ export function ActivityLog({ items, onOpenWord, showWord = true, showText = tru
                 onClick={(e) => {
                   e.stopPropagation();
                   const w = a.word;
-                  if (w) void onOpenWord?.({ word: w, textId: a.text_id ?? undefined });
+                  if (w) void onOpenWord?.({ word: w });
                 }}
               >
                 {a.word}
@@ -121,7 +121,7 @@ function LogDetail({
               <button
                 key={w}
                 className="tagword"
-                onClick={() => void onOpenWord?.({ word: w, textId: item.text_id ?? undefined })}
+                onClick={() => void onOpenWord?.({ word: w })}
               >
                 {w}
               </button>

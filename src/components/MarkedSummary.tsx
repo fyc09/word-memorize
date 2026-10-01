@@ -5,7 +5,6 @@ interface Props {
   entries: MarkedEntry[];
   onOpenWord: (r: WordRequest) => void | Promise<void>;
   onNext: () => void;
-  textId: number;
 }
 
 /**
@@ -14,7 +13,7 @@ interface Props {
  * 用户刚读完，正是需要回头确认这些词含义的时候 ——
  * 所以这里直接把释义摊开，而不是让他再逐个点开。
  */
-export function MarkedSummary({ entries, onOpenWord, onNext, textId }: Props) {
+export function MarkedSummary({ entries, onOpenWord, onNext }: Props) {
   return (
     <section className="panel">
       <div className="toolbar">
@@ -35,7 +34,7 @@ export function MarkedSummary({ entries, onOpenWord, onNext, textId }: Props) {
             <li
               key={m.word}
               className="def-row"
-              onClick={() => void onOpenWord({ word: m.word, level: m.level, textId })}
+              onClick={() => void onOpenWord({ word: m.word, level: m.level })}
             >
               <span className="def-word" style={{ color: levelVar(m.level) }}>
                 {m.word}

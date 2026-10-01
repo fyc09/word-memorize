@@ -114,16 +114,33 @@ npm run dev
 阶段口径：`无数据` / `新词` / `待验证` / `学习中(间隔 < 21 天)` / `已掌握(≥ 21 天)`。
 筛选条上的计数和列表 total 用**同一个口径**，不会对不上。
 
-### 侧边栏是一个面板位，不是一次跳转
+### 导航：URL 就是可见状态，history 就是那条路径
 
-点开任何东西都不会离开当前页面 —— 它在右侧面板里出现。面板同时只显示一个：
+点开任何东西都不离开当前页面 —— 它在右侧面板里出现。面板同时只显示一个：
 **文本面板**或**词卡**。
 
 ```text
-文本库 ──点某篇──▶ 文本面板（元信息 / 标记的生词 / 记录 / 正文预览）
-                     │            └─ 「设为当前阅读」才会开阅读会话
-                     └─点某个词─▶ 词卡（带「← 返回文章」）
+/read?t=…&open=text:8      阅读页 + 文本面板
+/words?stage=learning&page=2&open=word:particle
 ```
+
+| | |
+| --- | --- |
+| URL | 只装**当前可见的那一层**（`open=kind:value[:level]`） |
+| 每次点击 | `pushState` —— 所以浏览器后退天然就是逐层返回 |
+| 返回 / Esc | `history.back()`；已在栈底或直接从分享链接进来时改为清掉 `open` |
+| 关闭 | `history.go(-depth)`，一步退出整个深栈 |
+| 搜索框输入 | `replaceState` + 防抖（否则每个键都压一条历史） |
+| 切页签 | 清空面板 |
+
+**不维护内存栈**。因为 URL 能完整决定那一层的画面，`popstate` 时重新解析 URL
+就能渲染，history 本身就是路径 —— 两份状态早晚会对不齐。
+
+深度记在 `history.state` 里（`{app, depth, root}`），不在 URL 里：`root` 标记
+「这是直接打开的分享链接，没有上一条可退」，所以按返回不会把你带出应用。
+
+`open` 的编码是 `kind:value[:level]`，**不需要转义** —— 词表里 401,818 个词
+全部只含 `[A-Za-z'-]`，没有一个带冒号（实测），id 与等级都是整数。
 
 两个关键决定：
 
@@ -132,6 +149,24 @@ npm run dev
   正在读的那篇就被挤掉了。
 - **释义只在一个地方渲染**（词卡），任何视图需要展示释义都是打开它，
   不是各写一份 —— 所以阅读页、词库、生词本里看到的词卡完全一致。
+
+面板里没有面包屑，只有**返回**和**关闭**。返回按钮会带上上一层的名字
+（`← 返回 文章` / `← 返回 subtle`）—— 那是不用面包屑之后唯一的方位线索，
+成本是 `history.state` 里一个字符串。
+
+### 视觉约定
+
+界面风格参照 `iair-lock`，两条硬规则：
+
+1. **并列按钮一律同款**，只靠文字区分。熟练程度三选一（想起来了／有点模糊／
+   没想起来）就是这种情况 —— 给「没想起来」配红色会让人以为那是危险操作，
+   而不是「如实回答」。
+2. **动效克制且统一**：`--ease: cubic-bezier(.22,1,.36,1)` / `--fast:.18s` /
+   `--slow:.32s`。视图进场是 `fade + translateY(6px)`，面板是 `translateX(10px)`，
+   胶囊按钮按下 `scale(.96)`，没有别的。`prefers-reduced-motion` 时全关。
+
+`--accent` 特意选了紫蓝（`#818cf8`）而不是参照项目的蓝：难度色阶已经用掉了
+蓝／青／绿／橙／红，accent 再用蓝会让「选中态」和「四级」撞色。
 
 ### 记录可以展开
 
@@ -266,17 +301,19 @@ server/                Node 24，零 web 框架依赖
   index.mjs            HTTP API 与静态资源
 
 src/                   React + Vite + TypeScript
+  router.ts                    手写路由：URL ⇄ 可见状态，history 就是路径
   hooks/useWordPanel.ts        单词面板状态（打开 / 详情 / 标记）
   hooks/useFetchJob.ts         后台抓取任务轮询
   components/Reader.tsx         阅读会话（续读、标记、读完）
   components/TextBody.tsx       正文渲染（难度颜色、生词下划线）
   components/WordCard.tsx       词卡：释义 + 真实例句 + 记录
   components/MarkedSummary.tsx  读完后的标记词释义面板
+  components/TextPanel.tsx      文本面板（元信息 / 标记词 / 记录）
   components/TextLibrary.tsx    文本库
-  components/DictBank.tsx       词库
-  components/VocabList.tsx      生词本
+  components/WordList.tsx       单词：词库 ∪ 生词本，同一列表
   components/ReviewSession.tsx  填空 / 阅读两种复习流程
-  components/ActivityLog.tsx    流水的共用渲染
+  components/ActivityLog.tsx    流水的共用渲染（可展开）
+  components/Pager.tsx          分页控件
 ```
 
 数据库只有**一个文件** `data/app.db`。

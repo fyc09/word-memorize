@@ -19,38 +19,24 @@ interface Props {
   detail: WordDetail | null;
   loading: boolean;
   marked: boolean;
-  /** 从文本面板里点进来时，给出「返回文章」的入口 */
-  backLabel?: string;
-  onBack?: () => void;
   onMark: () => void;
   onUnmark: () => void;
-  onClose: () => void;
 }
 
-export function WordCard({ detail, loading, marked, backLabel, onBack, onMark, onUnmark, onClose }: Props) {
+export function WordCard({ detail, loading, marked, onMark, onUnmark }: Props) {
   if (loading) {
     return (
-      <aside className="side">
-        <div className="loading">
-          <div className="spinner" />
-          查询中…
-        </div>
-      </aside>
+      <div className="loading">
+        <div className="spinner" />
+        查询中…
+      </div>
     );
   }
 
-  // 没选中单词时整个侧栏不渲染，正文占满宽度 ——
-  // 比放一段「点击正文中的任意单词查看释义」的解释文字更有用。
   if (!detail) return null;
 
   return (
-    <aside className="side">
-      {onBack && (
-        <button className="backlink" onClick={onBack}>
-          ← {backLabel ?? '返回'}
-        </button>
-      )}
-
+    <>
       <div className="side-head">
         <div className="side-head-main">
           <h2 className="card-word">{detail.word}</h2>
@@ -62,9 +48,6 @@ export function WordCard({ detail, loading, marked, backLabel, onBack, onMark, o
             {detail.pos && <span>{detail.pos}</span>}
           </div>
         </div>
-        <button className="btn btn-xs" onClick={onClose} title="关闭">
-          ✕
-        </button>
       </div>
 
       {detail.tags.length > 0 && (
@@ -171,7 +154,7 @@ export function WordCard({ detail, loading, marked, backLabel, onBack, onMark, o
           </button>
         )}
       </div>
-    </aside>
+    </>
   );
 }
 

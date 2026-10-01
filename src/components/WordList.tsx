@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, PAGE } from '../api';
+import { setParams, useRoute } from '../router';
 import { levelVar } from '../types';
 import type { Paged, StageCounts, WordRequest, WordRow } from '../types';
 import { Pager } from './Pager';
@@ -33,10 +34,14 @@ const STAGE_CLS: Record<string, string> = {
  * 不必先想「这个词我标过没有，该去哪个页签找」。
  */
 export function WordList({ onOpenWord }: Props) {
-  const [q, setQ] = useState('');
-  const [stage, setStage] = useState('all');
-  const [offset, setOffset] = useState(0);
-  const [page, setPage] = useState<Paged<WordRow> | null>(null);
+  // 搜索词、阶段筛选、页码都住在 URL 里
+  const route = useRoute();
+  const q = route.params.get('q') ?? '';
+  const stage = route.params.get('stage') ?? 'all';
+  const page = Math.max(1, Number(route.params.get('page')) || 1);
+  const offset = (page - 1) * PAGE;
+
+  const [rows, setRows] = useState<Paged<WordRow> | null>(null);
   const [counts, setCounts] = useState<StageCounts | null>(null);
   const [error, setError] = useState<string | null>(null);
   const reqId = useRef(0);
@@ -61,7 +66,7 @@ export function WordList({ onOpenWord }: Props) {
         try {
           const r = await api.words({ q, stage, offset, limit: PAGE });
           if (reqId.current !== id) return;
-          setPage(r);
+          setRows(r);
           setError(null);
         } catch (e) {
           if (reqId.current === id) setError(e instanceof Error ? e.message : String(e));
@@ -72,8 +77,17 @@ export function WordList({ onOpenWord }: Props) {
   }, [q, stage, offset]);
 
   const pickStage = (key: string) => {
-    setStage(key);
-    setOffset(0);
+    setParams({ stage: key === 'all' ? undefined : key, page: undefined });
+  };
+
+  const onSearch = (value: string) => {
+    // 搜索框用 replace + 防抖：否则每敲一个键都压一条历史，退回去要按十几次
+    setParams({ q: value.trim() ? value : undefined, page: undefined }, { replace: true });
+  };
+
+  const goPage = (nextOffset: number) => {
+    const p = Math.floor(nextOffset / PAGE) + 1;
+    setParams({ page: p === 1 ? undefined : p });
   };
 
   return (
@@ -84,14 +98,10 @@ export function WordList({ onOpenWord }: Props) {
           <input
             className="search"
             value={q}
-            autoFocus
             placeholder="搜索单词"
-            onChange={(e) => {
-              setQ(e.target.value);
-              setOffset(0);
-            }}
+            onChange={(e) => onSearch(e.target.value)}
           />
-          {page && <span className="muted">共 {page.total}</span>}
+          {rows && <span className="muted">共 {rows.total}</span>}
         </div>
 
         <div className="chips chips-wrap">
@@ -108,9 +118,9 @@ export function WordList({ onOpenWord }: Props) {
         </div>
 
         {error && <div className="error">{error}</div>}
-        {page?.total === 0 && <p className="empty">没有匹配的词</p>}
+        {rows?.total === 0 && <p className="empty">没有匹配的词</p>}
 
-        {page && page.total > 0 && (
+        {rows && rows.total > 0 && (
           <table className="table">
             <thead>
               <tr>
@@ -122,7 +132,7 @@ export function WordList({ onOpenWord }: Props) {
               </tr>
             </thead>
             <tbody>
-              {page.items.map((w) => (
+              {rows.items.map((w) => (
                 <tr
                   key={w.word}
                   className="dict-row"
@@ -163,8 +173,8 @@ export function WordList({ onOpenWord }: Props) {
           </table>
         )}
 
-        {page && (
-          <Pager total={page.total} offset={page.offset} limit={page.limit} onChange={setOffset} />
+        {rows && (
+          <Pager total={rows.total} offset={offset} limit={PAGE} onChange={goPage} />
         )}
       </div>
     </div>

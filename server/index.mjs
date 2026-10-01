@@ -339,13 +339,23 @@ const routes = {
     return { payload: sessionPayload(session, level), fetched };
   },
 
-  /** 点击一个词 → 返回释义与其它真实文本中的例句 */
+  /**
+   * 点击一个词 → 返回释义与其它真实文本中的例句。
+   *
+   * 默认排除「当前正在读的那一篇」：点开一个词，想知道的是它在**别处**怎么用，
+   * 而不是刚刚看过的那句。这件事由服务端决定，客户端不必知道上下文。
+   */
   'GET /api/word': ({ query }) => {
     const word = String(query.word || '').trim().toLowerCase();
     if (!word) throw new Error('缺少 word 参数');
+    const current = currentSession();
+    const exclude =
+      query.excludeTextId !== undefined && query.excludeTextId !== ''
+        ? Number(query.excludeTextId)
+        : (current?.text_id ?? undefined);
     return wordDetail(
       word,
-      Number(query.excludeTextId) || undefined,
+      exclude,
       query.level === undefined ? undefined : Number(query.level),
     );
   },
@@ -662,7 +672,9 @@ const routes = {
       meta,
       markedWords: markedWordsOf(id, true),
       isCurrent: Boolean(current && current.text_id === id),
-      segments: attachAnalysis(id)?.segments ?? [],
+      // 不返回 segments：正文只在主视图（阅读页）渲染。
+      // 面板是「看一眼」的地方，把整篇分词传过来既浪费又溢出职责
+      // （实测这一项占载荷的 99.5%：91.4 KB / 91.9 KB）。
     };
   },
 
