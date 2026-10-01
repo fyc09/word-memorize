@@ -1,0 +1,31 @@
+{
+  "name": "word-memorize",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "语境背单词 — 在真实文本中学习与复习词汇",
+  "scripts": {
+    "build:db": "node scripts/build-db.mjs",
+    "seed": "node scripts/seed.mjs",
+    "reprocess": "node scripts/reprocess.mjs",
+    "reset": "node scripts/reset-user-data.mjs",
+    "dev:api": "node --watch server/index.mjs",
+    "dev:web": "vite",
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "start": "node server/index.mjs"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
