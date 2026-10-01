@@ -349,3 +349,21 @@ curl -L -o data/raw/lemma.en.txt https://raw.githubusercontent.com/skywind3000/E
 
 5. **问答环节不要做字符串比对。** 用户要的是「显示正确答案后自己判断有没有想起来」，
    而不是拼写测验 —— 拼写对了不代表记住了，拼错一个字母也不代表没想起来。
+
+---
+
+## 许可
+
+[Apache License 2.0](LICENSE) © 2026 Yuchen Fu
+
+### 第三方数据
+
+**词库与语料都不随仓库分发**，由使用者按上面的步骤自行获取，各自的许可以其来源为准：
+
+| 数据 | 来源 | 许可 / 说明 |
+| --- | --- | --- |
+| 词库 | [ECDICT](https://github.com/skywind3000/ECDICT) | MIT |
+| 变形表 | ECDICT 附带的 `lemma.en.txt` | MIT |
+| 语料 | BBC / NPR / The Guardian / Quanta / arXiv / PLOS 等的 RSS | 版权归各站点，仅供本地个人学习使用，请勿再分发 |
+
+抓取只在你的机器上进行，语料存放在本地 `data/app.db`（已 gitignore）。

@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "license": "Apache-2.0",
   "description": "语境背单词 — 在真实文本中学习与复习词汇",
   "scripts": {
     "build:db": "node scripts/build-db.mjs",
