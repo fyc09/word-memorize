@@ -139,17 +139,22 @@ export function App() {
       </nav>
 
       <main className="content">
-        {error && (
-          <div className="error">
-            {error}
-            <button className="chip" onClick={() => void reload()}>
-              重试
-            </button>
-          </div>
-        )}
+        {/*
+          key 让每次换页签重放一次进场动画。
+          data-tab 决定这一列的宽度（阅读窄、列表宽）—— 宽度统一由 .view
+          负责，各视图自己不再各自 max-width，所以错误横幅放在这里面
+          才能真的和内容对齐。
+        */}
+        <div className="view" data-tab={route.tab} key={route.tab}>
+          {error && (
+            <div className="error">
+              {error}
+              <button className="chip" onClick={() => void reload()}>
+                重试
+              </button>
+            </div>
+          )}
 
-        {/* key 让每次换页签重放一次进场动画 */}
-        <div className="view" key={route.tab}>
           {route.tab === 'learn' && state && (
             <Reader state={state} onStateChange={reload} onOpenWord={openWordFromMain} />
           )}

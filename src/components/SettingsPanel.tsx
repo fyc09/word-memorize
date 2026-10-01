@@ -71,7 +71,7 @@ export function SettingsPanel({ state, onStateChange }: Props) {
 
   return (
     <div className="wrap">
-      <div className="page page-narrow">
+      <div className="page">
         {error && <div className="error">{error}</div>}
 
         <div className="section">

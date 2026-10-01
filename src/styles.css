@@ -115,70 +115,59 @@ a:hover {
 
 /* ---------------------------------------------------------------- 骨架 */
 
+/*
+ * 骨架是**移动优先**的（同 gtd-manager）：默认 = 底部标签栏 + 单列内容，
+ * 桌面只在一个 media query 里换成左侧竖排导航。
+ */
 .shell {
-  display: flex;
-  align-items: stretch;
-  height: 100%;
-  max-width: 1560px;
-  margin: 0 auto;
+  min-height: 100%;
 }
 
+/* 手机：固定在底部的标签栏 */
 .nav {
-  flex: none;
-  width: 208px;
-  display: flex;
-  flex-direction: column;
-  padding: 20px 0;
-  border-right: 1px solid var(--line);
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-.nav-brand {
-  padding: 0 18px 18px;
-  font-size: 15px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+/* 品牌与统计在手机上不显示 */
+.nav-brand,
+.nav-foot {
+  display: none;
 }
 
 .nav-list {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 .nav-item {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 18px;
+  justify-content: center;
+  gap: 5px;
+  margin-top: -1px;
+  padding: 13px 0 14px;
   color: var(--mut);
-  font-size: 14.5px;
-  border-left: 2px solid transparent;
+  font-size: 14px;
+  border-top: 2px solid transparent;
   transition:
     color var(--fast) var(--ease),
-    background-color var(--fast) var(--ease),
     border-color var(--fast) var(--ease);
-}
-
-.nav-item:hover {
-  color: var(--fg);
-  background: var(--soft);
 }
 
 .nav-item.on {
   color: var(--accent);
-  border-left-color: var(--accent);
-  background: var(--soft);
+  border-top-color: var(--accent);
   font-weight: 600;
-}
-
-.nav-foot {
-  margin-top: auto;
-  padding: 16px 18px 0;
-  border-top: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .stat {
@@ -197,15 +186,15 @@ a:hover {
 }
 
 .badge {
-  margin-left: auto;
-  min-width: 18px;
-  padding: 0 6px;
+  margin-left: 4px;
+  min-width: 17px;
+  padding: 0 5px;
   border-radius: var(--r-pill);
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 11px;
   font-weight: 700;
-  line-height: 18px;
+  line-height: 17px;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -225,10 +214,10 @@ a:hover {
 }
 
 .content {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-  padding: 28px 28px 96px;
+  /* 手机：单列 640，底部留出标签栏的高度 */
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px 14px calc(100px + env(safe-area-inset-bottom));
 }
 
 .view {
@@ -244,14 +233,25 @@ a:hover {
 
 /* ---------------------------------------------------------------- 面板 */
 
+/*
+ * 手机：面板全屏盖住内容区，从下方滑入。
+ * 桌面在文件末尾的媒体查询里改成右侧固定一列。
+ */
 .panel {
-  flex: none;
-  width: 424px;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
   overflow-y: auto;
-  padding: 14px 22px 64px;
-  border-left: 1px solid var(--line);
+  padding: 14px 18px calc(48px + env(safe-area-inset-bottom));
   background: var(--raised);
-  animation: panelin var(--slow) var(--ease);
+  animation: panelup var(--slow) var(--ease);
+}
+
+@keyframes panelup {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
 }
 
 @keyframes panelin {
@@ -523,8 +523,7 @@ input[type="checkbox"]:checked::after {
 /* ---------------------------------------------------------------- 阅读 */
 
 .reader {
-  max-width: 700px;
-  margin: 0 auto;
+  min-width: 0;
 }
 
 .text-head {
@@ -1156,8 +1155,7 @@ input[type="checkbox"]:checked::after {
 /* ---------------------------------------------------------------- 复习 */
 
 .review {
-  max-width: 720px;
-  margin: 0 auto;
+  min-width: 0;
 }
 
 .plan-summary {
@@ -1381,7 +1379,6 @@ input[type="checkbox"]:checked::after {
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: 720px;
   margin-bottom: 18px;
   padding: 13px 16px;
   border-radius: var(--r);
@@ -1457,88 +1454,150 @@ input[type="checkbox"]:checked::after {
 /* ---------------------------------------------------------------- 视图容器 */
 
 /*
- * 滚动交给 .content / .panel，这些只是语义容器 ——
- * 内外各写一次 overflow 会出现双滚动条。
+ * 这些只是语义容器：滚动交给 .content / .panel，宽度交给 .view
+ * （按页签定，见文件末尾的桌面媒体查询）。
+ * 既有理由：内外各写一次 overflow 会出现双滚动条；
+ * 各视图各自 max-width 则会让错误横幅无法与内容对齐。
  */
 .wrap,
 .reader-wrap,
-.review-wrap {
+.review-wrap,
+.page,
+.reader,
+.review {
   display: block;
-}
-
-.page {
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.page-narrow {
-  max-width: 720px;
 }
 
 /* ---------------------------------------------------------------- 窄屏 */
 
-@media (max-width: 900px) {
+/* ---------------------------------------------------------------- 桌面 */
+
+/*
+ * 断点同 gtd-manager：宽度够、**且是精确指针设备**才换成左侧竖排导航。
+ * 触屏平板即使够宽也保持底部标签栏 —— 手指去点侧边栏很别扭。
+ */
+@media (min-width: 768px) and (pointer: fine) {
   .shell {
-    flex-direction: column;
-    height: auto;
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    max-width: 1560px;
+    margin: 0 auto;
   }
 
   .nav {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    width: auto;
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-    background: var(--bg);
+    position: static;
+    flex: none;
+    width: 208px;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 0;
+    background: none;
+    border-top: 0;
+    border-right: 1px solid var(--line);
   }
 
-  .nav-brand,
-  .nav-foot {
-    display: none;
+  .nav-brand {
+    display: block;
+    padding: 0 18px 18px;
+    font-size: 15px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
   }
 
   .nav-list {
-    flex-direction: row;
-    gap: 4px;
-    overflow-x: auto;
+    flex-direction: column;
+    gap: 2px;
+    max-width: none;
+    margin: 0;
   }
 
   .nav-item {
-    height: 32px;
-    padding: 0 12px;
-    border-left: 0;
-    border-radius: var(--r-pill);
+    flex: none;
+    justify-content: flex-start;
+    margin-top: 0;
+    height: 38px;
+    padding: 0 18px;
+    font-size: 14.5px;
+    border-top: 0;
+    border-left: 2px solid transparent;
+    border-radius: 0;
+    transition:
+      color var(--fast) var(--ease),
+      background-color var(--fast) var(--ease),
+      border-color var(--fast) var(--ease);
   }
 
   .nav-item.on {
-    border-left-color: transparent;
+    border-top-color: transparent;
+    border-left-color: var(--accent);
+    background: var(--soft);
+  }
+
+  .nav-foot {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: auto;
+    padding: 16px 18px 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .badge {
+    margin-left: auto;
   }
 
   .content {
-    padding: 20px 16px 80px;
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    margin: 0;
+    overflow-y: auto;
+    padding: 28px 28px 96px;
   }
 
-  /* 窄屏上面板盖住整个内容区，否则没地方放 */
+  /*
+   * 列的宽度按页签定：阅读窄一些好读，列表宽一些好扫。
+   * 统一收在这里，各视图不再各自 max-width —— 这样错误横幅只要放进
+   * .view 就自然与内容对齐，不必让 App 去猜当前视图有多宽。
+   */
+  .view {
+    margin: 0 auto;
+  }
+
+  .view[data-tab='learn'] {
+    max-width: 700px;
+  }
+
+  .view[data-tab='review'] {
+    max-width: 760px;
+  }
+
+  .view[data-tab='settings'] {
+    max-width: 720px;
+  }
+
+  .view[data-tab='texts'],
+  .view[data-tab='words'] {
+    max-width: 900px;
+  }
+
+  /* 面板在桌面是右侧固定一列 */
   .panel {
-    position: fixed;
-    inset: 0;
-    z-index: 10;
-    width: auto;
-    padding: 14px 18px 60px;
-    border-left: 0;
-    animation: panelup var(--slow) var(--ease);
+    position: static;
+    width: 424px;
+    flex: none;
+    padding: 14px 22px 64px;
+    border-left: 1px solid var(--line);
+    animation: panelin var(--slow) var(--ease);
   }
+}
 
-  @keyframes panelup {
-    from {
-      opacity: 0;
-      transform: translateY(16px);
-    }
+/* 触屏不显示 hover：手指点完留下的 hover 会一直粘着 */
+@media (hover: hover) and (pointer: fine) {
+  .nav-item:hover {
+    color: var(--fg);
+    background: var(--soft);
   }
 }
 
