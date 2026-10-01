@@ -1,0 +1,11 @@
+# 仓库内统一按 LF 存储。
+# 不写这个的话，换行符取决于每个贡献者的 core.autocrlf 设置：
+# Windows 上 autocrlf=false 的人会把 CRLF 提交进来，之后 diff 全是噪音。
+* text=auto eol=lf
+
+# 二进制不做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff2 binary
