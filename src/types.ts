@@ -231,6 +231,8 @@ export interface LearnPayload {
 export interface AppState {
   level: number;
   categories: string[];
+  /** 是否用颜色标注难度。全局开关，存在服务端设置里。 */
+  showLevels: boolean;
   levels: Level[];
   stages: Record<string, Stage>;
   categoriesMeta: Record<string, { key: string; name: string; desc: string }>;

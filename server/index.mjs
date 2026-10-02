@@ -114,6 +114,16 @@ function currentCategories() {
   return list;
 }
 
+/**
+ * 是否用颜色标注难度。默认开。
+ *
+ * 存在设置里而不是前端 state —— 它是全局开关，
+ * 刷新页面、下次打开都不应该被重置。
+ */
+function currentShowLevels() {
+  return getSetting('showLevels', '1') !== '0';
+}
+
 // ---------------------------------------------------------------- 数据操作
 
 /** 标记一个词为生词。 */
@@ -310,6 +320,7 @@ const routes = {
     return {
       level: currentLevel(),
       categories: currentCategories(),
+      showLevels: currentShowLevels(),
       levels: LEVELS,
       stages: STAGES,
       categoriesMeta: CATEGORIES,
@@ -337,7 +348,14 @@ const routes = {
         .filter((c) => CATEGORIES[c]);
       setSetting('categories', list.join(','));
     }
-    return { level: currentLevel(), categories: currentCategories() };
+    if (body.showLevels !== undefined) {
+      setSetting('showLevels', body.showLevels ? '1' : '0');
+    }
+    return {
+      level: currentLevel(),
+      categories: currentCategories(),
+      showLevels: currentShowLevels(),
+    };
   },
 
   /** 从文本库点开某一篇。会开一个新会话（已读完的可重读）。 */

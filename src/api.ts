@@ -51,8 +51,8 @@ export const PAGE = 25;
 export const api = {
   state: () => req<AppState>('/api/state'),
 
-  setSettings: (patch: { level?: number; categories?: string[] }) =>
-    post<{ level: number; categories: string[] }>('/api/settings', patch),
+  setSettings: (patch: { level?: number; categories?: string[]; showLevels?: boolean }) =>
+    post<{ level: number; categories: string[]; showLevels: boolean }>('/api/settings', patch),
 
   // ------------------------------------------------------------ 阅读
 

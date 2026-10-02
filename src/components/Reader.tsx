@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
-import { levelVar } from '../types';
 import type { AppState, LearnPayload, Segment, TextMeta, WordRequest, WordRow } from '../types';
 import { TextBody } from './TextBody';
 import { MarkedSummary } from './MarkedSummary';
@@ -95,8 +94,6 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
     [text, onOpenWord],
   );
 
-  const legendLevels = state.levels.filter((l) => l.level > 0);
-
   return (
     <div className="reader-wrap">
       <div className="reader">
@@ -112,7 +109,7 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
         {!loading && !text && (
           <div className="empty">
             <p>{notice ?? '暂无文本'}</p>
-            <button className="btn primary" onClick={() => void load('next')}>
+            <button className="btn primary" type="button" onClick={() => void load('next')}>
               取一篇
             </button>
           </div>
@@ -146,15 +143,8 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
             </div>
 
             <div className="toolbar">
-              <div className="legend">
-                {legendLevels.map((l) => (
-                  <span key={l.level} className="legend-item" style={{ color: levelVar(l.level) }}>
-                    {l.name}
-                  </span>
-                ))}
-              </div>
               <div className="push-right">
-                <button className="btn" onClick={() => void load('next')}>
+                <button className="btn" type="button" onClick={() => void load('next')}>
                   换一篇
                 </button>
               </div>
@@ -169,7 +159,7 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
 
             {summary === null ? (
               <div className="toolbar toolbar-end">
-                <button className="btn primary" onClick={() => void finish()}>
+                <button className="btn primary" type="button" onClick={() => void finish()}>
                   读完
                 </button>
                 {/* 不写「N 个生词」—— 顶上那一栏已经用了「生词」表示

@@ -65,6 +65,23 @@ export function App() {
 
   const onError = useCallback((message: string) => setError(message), []);
 
+  /**
+   * 难度显示开关。
+   * 存服务端设置而不是本地 state —— 它是全局开关，
+   * 换页签、刷新、下次打开都该保持。
+   */
+  const setShowLevels = useCallback(
+    async (on: boolean) => {
+      try {
+        await api.setSettings({ showLevels: on });
+        await reload();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [reload],
+  );
+
   // 正文里已标记的词。放在 App 而不是 Reader —— 词卡（旁边一列）里标记后，
   // 正文要立刻长出下划线，两边得共用一个来源。
   const [markedWords, setMarkedWords] = useState<Set<string>>(new Set());
@@ -127,7 +144,9 @@ export function App() {
   const reading = state?.corpus.reading ?? 0;
 
   return (
-    <div className="shell">
+    /* no-levels 把各档颜色变量归到正文本色（见 styles.css），
+       一处生效即覆盖正文、词卡与所有列表 —— 不必逐组件传开关。 */
+    <div className={`shell${state && !state.showLevels ? ' no-levels' : ''}`}>
       <nav className="nav">
         <div className="nav-brand">语境背单词</div>
         <div className="nav-list">
@@ -149,6 +168,17 @@ export function App() {
             <Stat label="生词" value={state.vocab.total ?? 0} />
             <Stat label="待验证" value={state.vocab.unverified ?? 0} />
             <Stat label="语料" value={state.corpus.texts} />
+
+            <label className="toggle nav-switch">
+              <input
+                type="checkbox"
+                className="switch-input"
+                checked={state.showLevels}
+                onChange={(e) => void setShowLevels(e.target.checked)}
+              />
+              <span className="switch" />
+              难度
+            </label>
           </div>
         )}
       </nav>

@@ -48,7 +48,15 @@ export function WordCard({ detail, loading, marked, onMark, onUnmark, onOpenWord
         <div className="side-head-main">
           <h2 className="card-word">{detail.word}</h2>
           <div className="card-sub">
-            <span className="lv-badge" style={{ background: levelVar(detail.level) }}>
+            {/*
+              底色走自定义属性而不是直接写 background：
+              内联样式普通规则盖不住，直写 background 就得靠 !important
+              才能在「关掉难度显示」时改掉它。
+            */}
+            <span
+              className="lv-badge"
+              style={{ '--badge-bg': levelVar(detail.level) } as React.CSSProperties}
+            >
               {detail.levelName}
             </span>
             {detail.phonetic && <span>/{detail.phonetic}/</span>}
