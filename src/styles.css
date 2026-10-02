@@ -236,13 +236,17 @@ a:hover {
 /*
  * 手机：面板全屏盖住内容区，从下方滑入。
  * 桌面在文件末尾的媒体查询里改成右侧固定一列。
+ *
+ * 顶部内边距刻意不给，改由 .panel-bar 自己承担：这样按钮盒子的上边缘
+ * 就在滚动口顶端，「滚下去的内容被它的底色挡住」才是完整的。
  */
 .panel {
+  --panel-top: 14px;
   position: fixed;
   inset: 0;
   z-index: 10;
   overflow-y: auto;
-  padding: 14px 18px calc(48px + env(safe-area-inset-bottom));
+  padding: 0 18px calc(48px + env(safe-area-inset-bottom));
   background: var(--raised);
   animation: panelup var(--slow) var(--ease);
 }
@@ -266,12 +270,30 @@ a:hover {
   animation: viewin var(--slow) var(--ease);
 }
 
+/*
+ * 返回 / 关闭固定在面板顶部。
+ *
+ * 卡片很长的词（例句多、记录多）滚下去以后，这两个按钮就见不着了 ——
+ * 而「关闭」是唯一的出口，不能要用户先滚回顶部。
+ *
+ * .panel 自己就是滚动容器（手机 fixed inset:0、桌面 flex 列），
+ * 所以 sticky 直接相对它生效。
+ * 注意：sticky 的约束算在 **margin box** 上，所以不能靠负的 top 外边距
+ * 把盒子拉上去（那样 border box 反而会往下跑一截）。
+ * 正确做法是让面板顶部没有内边距，那一段 padding 由这里承担 ——
+ * 盒子上边缘恰好在滚动口顶端，底色一跳不漏地挡住滚动的内容。
+ */
 .panel-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   /* 返回靠最左、关闭靠最右 */
   justify-content: space-between;
   margin: 0 -8px 2px;
+  padding: var(--panel-top) 0 0;
+  background: var(--raised);
 }
 
 .icon-btn {
@@ -1599,7 +1621,7 @@ input[type="checkbox"]:checked::after {
     position: static;
     width: 424px;
     flex: none;
-    padding: 14px 22px 64px;
+    padding: 0 22px 64px;
     border-left: 1px solid var(--line);
     animation: panelin var(--slow) var(--ease);
   }

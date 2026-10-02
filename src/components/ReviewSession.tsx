@@ -44,6 +44,13 @@ export function ReviewSession({ state, onStateChange }: Props) {
   /** 评完熟练度后展示的单词卡片 */
   const [cardDetail, setCardDetail] = useState<WordDetail | null>(null);
   const [cardLoading, setCardLoading] = useState(false);
+  /**
+   * 这道题是从哪条路评的。
+   * 卡片页要把题面留在上方（释义要和原文对着看），而题面的形态取决于
+   * 走的是「默写」还是「填不出来 → 只认上下文」—— phase 那时已经是 card，
+   * 记不住了，所以单独存一个。
+   */
+  const [gradedFrom, setGradedFrom] = useState<'cloze' | 'reading'>('cloze');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,6 +82,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
   const submit = useCallback(
     (grade: GradeKey) => {
       if (!item) return;
+      setGradedFrom(phase === 'reading' ? 'reading' : 'cloze');
       setLoading(true);
       setCardLoading(true);
       api
@@ -90,7 +98,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
           setCardLoading(false);
         });
     },
-    [item, typed, usedHint, onStateChange],
+    [item, typed, usedHint, onStateChange, phase],
   );
 
   /** 确认看完 → 进下一个词 */
@@ -200,6 +208,15 @@ export function ReviewSession({ state, onStateChange }: Props) {
                 <h2 className="review-title">
                   复习 <span className="muted">{plan.items.length}</span>
                 </h2>
+
+                {/*
+                  卡片摆在题面**后面**，两者同屏 —— 光看释义记不住，
+                  得能一边看词在原文里的样子，一边看它是什么意思。
+                */}
+                <div className="qcard">
+                  <SentenceLine item={item} from={gradedFrom} />
+                </div>
+
                 <div className="section">
                   <WordCard
                     detail={cardDetail}
@@ -209,6 +226,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
                     onUnmark={() => void setMark(false)}
                   />
                 </div>
+
                 <div className="btn-row">
                   <button className="btn primary wide" onClick={next}>
                     {idx + 1 < plan.items.length ? '下一个' : '完成本轮'}
@@ -355,6 +373,18 @@ export function ReviewSession({ state, onStateChange }: Props) {
       </div>
     </div>
   );
+}
+
+/**
+ * 题面：默写模式还原整句并高亮答案，阅读模式只给目标词周围的上下文。
+ *
+ * 卡片页也用它 —— 上面是词在原文里的样子，下面是释义，同屏对照。
+ */
+function SentenceLine({ item, from }: { item: ReviewItem; from: 'cloze' | 'reading' }) {
+  if (from === 'reading') {
+    return <div className="ctx">{highlightContext(item.context, item.answer)}</div>;
+  }
+  return <div className="q-sentence">{renderRevealed(item.sentence, item.answer)}</div>;
 }
 
 /**
