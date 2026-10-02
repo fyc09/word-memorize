@@ -15,6 +15,7 @@
     "dev": "node scripts/dev.mjs",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
+    "test": "node --test",
     "start": "node server/index.mjs"
   },
   "dependencies": {

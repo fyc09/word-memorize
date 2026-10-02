@@ -71,25 +71,40 @@ function stripInflection(surface) {
 
 /**
  * 把一个词形还原为词典原形。
- * 依次尝试：缩写还原 → 变形表 → 连字符分词还原 → 小写自身。
+ * 依次尝试：缩写还原 → 变形表 → 原词形自身 → 连字符分词还原。
+ *
+ * 变形表里的原形**不一定是真词**，所以每一步都要求结果在词典里查得到。
+ * 反面例子：ECDICT 和 lemma.en.txt 都把 overdeveloped 的原形记作
+ * overdevelope —— 一个从未作为条目存在过的词（两个来源在这一点上完全一致，
+ * 所以不是「一方错一方对」，是 ECDICT 自身就带着这批截断的词干：
+ * campuse / unexpect / astrophysic / traffick / weirde …）。
+ * 照单全收的后果不只是名字难看：这个假词头查不到释义，
+ * 于是 compoundLevel 把它判成最难的一档，语料里凭空多出一个「未收录的 L6 生词」。
  *
  * @param {string} surface 文本中的原样词形
- * @param {(form:string)=>string|null} lookupLemma
+ * @param {{lookupWord:(w:string)=>any, lookupLemma:(f:string)=>string|null}} dict
  * @returns {string} 小写原形
  */
-export function lemmatize(surface, lookupLemma) {
+export function lemmatize(surface, dict) {
   const normalized = normalizeApostrophes(surface);
   const lower = stripInflection(normalized).toLowerCase();
 
-  const expanded = CONTRACTIONS[lower];
-  if (expanded) return lookupLemma(expanded) || expanded;
+  // 只有在词典里查得到才认这个原形
+  const real = (w) => (w && dict.lookupWord(w) ? w : null);
 
-  const hit = lookupLemma(lower);
+  const expanded = CONTRACTIONS[lower];
+  if (expanded) return real(dict.lookupLemma(expanded)) ?? expanded;
+
+  const hit = real(dict.lookupLemma(lower));
   if (hit) return hit;
+
+  // 词形本身就是词 → 直接用它。
+  // 这一步要在连字符拆解之前：拆解会把 long-lasting 还成 long-last。
+  if (dict.lookupWord(lower)) return lower;
 
   // 连字符复合词：分别还原后拼回（well-known → well-known）
   if (lower.includes('-')) {
-    const parts = lower.split('-').map((p) => lookupLemma(p) || p);
+    const parts = lower.split('-').map((p) => real(dict.lookupLemma(p)) ?? p);
     return parts.join('-');
   }
   return lower;
@@ -138,7 +153,7 @@ export function analyzeText(text, dict) {
     if (seg.kind !== 'word') continue;
     if (!isWordToken(seg.text)) continue;
 
-    const lemma = lemmatize(seg.text, dict.lookupLemma);
+    const lemma = lemmatize(seg.text, dict);
     let st = stats.get(lemma);
     if (!st) {
       st = { surfaces: new Set(), capitalizedMid: false, count: 0 };
@@ -183,7 +198,7 @@ export function analyzeText(text, dict) {
   // 第三遍：把标注贴回片段
   const words = segs.map((seg) => {
     if (seg.kind !== 'word') return { ...seg };
-    const lemma = lemmatize(seg.text, dict.lookupLemma);
+    const lemma = lemmatize(seg.text, dict);
     const v = vocab.get(lemma);
     return { ...seg, word: lemma, level: v ? v.level : 6 };
   });
