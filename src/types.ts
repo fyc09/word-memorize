@@ -91,6 +91,8 @@ export interface WordDetail {
   tags: string[];
   variants: { label: string; form: string }[];
   examples: Example[];
+  /** 例句里哪些词在生词本里（服务端按全局口径标出） */
+  markedWords: string[];
   card: VocabCard | null;
   /** append-only 流水里与这个词相关的条目 */
   history: ActivityItem[];

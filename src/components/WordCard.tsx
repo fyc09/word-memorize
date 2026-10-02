@@ -4,8 +4,6 @@ import { ActivityLog } from './ActivityLog';
 import { Spinner } from './Spinner';
 import { WordSpans } from './TextBody';
 
-const NO_MARKS: Set<string> = new Set();
-
 /** 没有分词结果时的退路：只把目标词高亮出来。 */
 function highlightAnswer(sentence: string, answer: string): React.ReactNode {
   const idx = sentence.toLowerCase().indexOf(answer.toLowerCase());
@@ -25,20 +23,11 @@ interface Props {
   marked: boolean;
   onMark: () => void;
   onUnmark: () => void;
-  /** 例句要和正文一致：已标记的词带下划线 */
-  markedWords?: Set<string>;
+  /** 点例句里的词 → 查它。不传就不可点。 */
   onOpenWord?: (r: WordRequest) => void;
 }
 
-export function WordCard({
-  detail,
-  loading,
-  marked,
-  onMark,
-  onUnmark,
-  markedWords,
-  onOpenWord,
-}: Props) {
+export function WordCard({ detail, loading, marked, onMark, onUnmark, onOpenWord }: Props) {
   if (loading) {
     return (
       <div className="loading">
@@ -49,6 +38,9 @@ export function WordCard({
   }
 
   if (!detail) return null;
+
+  // 例句里的下划线：这个词在不在生词本里。集合由服务端给，调用方不用操心。
+  const exampleMarks = new Set(detail.markedWords);
 
   return (
     <>
@@ -117,7 +109,7 @@ export function WordCard({
               {ex.segments ? (
                 <WordSpans
                   segments={ex.segments}
-                  marked={markedWords ?? NO_MARKS}
+                  marked={exampleMarks}
                   focus={detail.word}
                   onWord={(w, l) => onOpenWord?.({ word: w, level: l })}
                 />

@@ -1175,7 +1175,16 @@ input[type="checkbox"]:checked::after {
   padding-bottom: 0;
 }
 
-.section h2 {
+/*
+ * 分区小标题。
+ *
+ * 必须是显式类名，不能写成 .section h2 —— 那会连带命中分区内部
+ * 其他组件自己的 h2（词卡词头 .card-word、页面标题 .page-title），
+ * 而 .section h2 = (0,1,1) 会盖过 (0,1,0)。
+ * 后果不只是字号走样：这个规则带 uppercase 和灰色，
+ * 词卡的 28px 词头会变成 12px 的灰色大写标签。
+ */
+.section-title {
   margin-bottom: 12px;
   color: var(--mut);
   font-size: 12px;

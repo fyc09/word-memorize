@@ -162,6 +162,20 @@ function unmarkWord(word) {
  *   专有名词（L0）与连字符复合词（year-old）的等级都依赖上下文，
  *   光看词典条目算不出来。
  */
+/**
+ * 这批词里哪些在生词本里。
+ * 口径与 markedWordsOf 一致（status != archived）。
+ */
+function markedAmong(words) {
+  const uniq = [...new Set(words)];
+  if (uniq.length === 0) return [];
+  const holes = uniq.map(() => '?').join(',');
+  return db
+    .prepare(`SELECT word FROM vocab WHERE status != 'archived' AND word IN (${holes})`)
+    .all(...uniq)
+    .map((r) => r.word);
+}
+
 function wordDetail(word, excludeTextId, levelHint) {
   const rec = lookupWord(word);
   const card = db.prepare('SELECT * FROM vocab WHERE word = ?').get(word) || null;
@@ -184,6 +198,24 @@ function wordDetail(word, excludeTextId, levelHint) {
   else if (rec) level = rec.level;
   else level = compoundLevel(word, { lookupWord });
 
+  const examples = exampleSentences(word, { excludeTextId, limit: 6 });
+
+  /*
+   * 例句里哪些词在生词本里。
+   *
+   * 由服务端给，而不是让调用方传一个「当前这篇标记了哪些词」的集合 ——
+   * 例句来自别的文章，那个集合对例句几乎永远不命中（两边都是按文本过滤的）。
+   * 交给服务端按全局口径标出后，词卡在正文旁边、在复习页里就自然是同一套渲染，
+   * 不依赖调用方记得多传一个 prop。
+   */
+  const markedWords = markedAmong(
+    examples.flatMap((ex) =>
+      (ex.segments ?? [])
+        .filter((s) => s.kind === 'word')
+        .map((s) => s.word ?? s.text.toLowerCase()),
+    ),
+  );
+
   return {
     word,
     found: Boolean(rec),
@@ -195,7 +227,8 @@ function wordDetail(word, excludeTextId, levelHint) {
     definition: rec?.definition || null,
     tags: rec?.tags ? String(rec.tags).split(/\s+/).filter(Boolean) : [],
     variants: readableExchange(rec?.exchange),
-    examples: exampleSentences(word, { excludeTextId, limit: 6 }),
+    examples,
+    markedWords,
     card: card
       ? { ...card, stage: stageOf(card), stageName: STAGES[stageOf(card)].name }
       : null,

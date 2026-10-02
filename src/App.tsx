@@ -208,7 +208,6 @@ export function App() {
               detail={word.detail}
               loading={word.loading}
               marked={word.marked}
-              markedWords={markedWords}
               onOpenWord={openWordFromPanel}
               onMark={() => void word.toggleMark()}
               onUnmark={() => void word.toggleMark()}

@@ -73,7 +73,7 @@ export function SettingsPanel({ state, onStateChange }: Props) {
         {error && <div className="error">{error}</div>}
 
         <div className="section">
-          <h2>我的水平</h2>
+          <h2 className="section-title">我的水平</h2>
           <div className="chips">
             {levelChoices.map((l) => (
               <button
@@ -89,7 +89,7 @@ export function SettingsPanel({ state, onStateChange }: Props) {
         </div>
 
         <div className="section">
-          <h2>题材偏好</h2>
+          <h2 className="section-title">题材偏好</h2>
           <div className="chips">
             {Object.values(state.categoriesMeta).map((c) => (
               <button
@@ -105,7 +105,7 @@ export function SettingsPanel({ state, onStateChange }: Props) {
         </div>
 
         <div className="section">
-          <h2>语料库</h2>
+          <h2 className="section-title">语料库</h2>
           <div className="variants">
             <span className="variant">
               <em>总计</em>
@@ -148,7 +148,7 @@ export function SettingsPanel({ state, onStateChange }: Props) {
         </div>
 
         <div className="section">
-          <h2>学习统计</h2>
+          <h2 className="section-title">学习统计</h2>
           <div className="variants">
             <span className="variant">
               <em>生词总数</em>

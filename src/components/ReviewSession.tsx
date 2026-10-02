@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
-import type { AppState, GradeKey, ReviewItem, ReviewPlan, WordDetail } from '../types';
+import type { AppState, GradeKey, ReviewItem, ReviewPlan, WordDetail, WordRequest } from '../types';
 import { Spinner } from './Spinner';
 import { WordCard } from './WordCard';
 
@@ -127,6 +127,23 @@ export function ReviewSession({ state, onStateChange }: Props) {
     [item, onStateChange],
   );
 
+  /**
+   * 点例句里的词 → 就地换成那个词的卡片。
+   * 侧边栏能做到的事这里也要能做，否则同一张卡在两边手感不同。
+   * 只换卡片，不动 idx —— 「下一个」仍然推进这道题。
+   */
+  const openOtherWord = useCallback(async (r: WordRequest) => {
+    setCardLoading(true);
+    try {
+      setCardDetail(await api.word(r.word, r.level));
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCardLoading(false);
+    }
+  }, []);
+
   // 键盘：1/2/3 评分，Enter 揭示答案或在卡片页进下一个
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -172,7 +189,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
 
         {plan && plan.dueCount === 0 && (
           <div className="section">
-            <h2>没有到期的词</h2>
+            <h2 className="section-title">没有到期的词</h2>
             <button className="btn primary" onClick={() => void load()}>
               重新检查
             </button>
@@ -181,7 +198,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
 
         {plan && plan.dueCount > 0 && plan.items.length === 0 && (
           <div className="section">
-            <h2>语料库里没有这些词</h2>
+            <h2 className="section-title">语料库里没有这些词</h2>
             <p className="desc">
               到期 {plan.dueCount} / 语料 {state.corpus.texts} 篇
             </p>
@@ -194,7 +211,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
         {/* 完成页不再重复词数 —— 标题上已经有了 */}
         {plan && plan.items.length > 0 && !item && (
           <div className="section">
-            <h2>复习完成</h2>
+            <h2 className="section-title">复习完成</h2>
             <button className="btn primary" onClick={() => void load()}>
               再来一轮
             </button>
@@ -222,6 +239,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
                     detail={cardDetail}
                     loading={cardLoading}
                     marked={Boolean(cardDetail?.card)}
+                    onOpenWord={(r) => void openOtherWord(r)}
                     onMark={() => void setMark(true)}
                     onUnmark={() => void setMark(false)}
                   />
