@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import { levelVar } from '../types';
-import type { AppState, LearnPayload, MarkedEntry, Segment, TextMeta, WordRequest } from '../types';
+import type { AppState, LearnPayload, Segment, TextMeta, WordRequest, WordRow } from '../types';
 import { TextBody } from './TextBody';
 import { MarkedSummary } from './MarkedSummary';
 import { Spinner } from './Spinner';
@@ -22,7 +22,7 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<MarkedEntry[] | null>(null);
+  const [summary, setSummary] = useState<WordRow[] | null>(null);
 
   /**
    * 本篇是不是「上次没读完，这次接着读」。
@@ -145,40 +145,45 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
               )}
             </div>
 
-            {summary !== null ? (
+            <div className="toolbar">
+              <div className="legend">
+                {legendLevels.map((l) => (
+                  <span key={l.level} className="legend-item" style={{ color: levelVar(l.level) }}>
+                    {l.name}
+                  </span>
+                ))}
+              </div>
+              <div className="push-right">
+                <button className="btn" onClick={() => void load('next')}>
+                  换一篇
+                </button>
+              </div>
+            </div>
+
+            <TextBody
+              segments={text.segments}
+              marked={marked}
+              onWord={handleWord}
+              boilerplateFrom={text.boilerplateFrom}
+            />
+
+            {summary === null ? (
+              <div className="toolbar toolbar-end">
+                <button className="btn primary" onClick={() => void finish()}>
+                  读完
+                </button>
+                {/* 不写「N 个生词」—— 顶上那一栏已经用了「生词」表示
+                    「超出你水平的词」，同一个词两个含义会很混 */}
+                <span className="muted">已标记 {marked.size}</span>
+              </div>
+            ) : (
+              /* 摘要接在正文**下面**，不替掉正文 —— 刚读完正要回头对照，
+                 文章留着才看得出这些词的语境 */
               <MarkedSummary
-                entries={summary}
+                rows={summary}
                 onOpenWord={onOpenWord}
                 onNext={() => void load('next')}
               />
-            ) : (
-              <>
-                <div className="toolbar">
-                  <div className="legend">
-                    {legendLevels.map((l) => (
-                      <span key={l.level} className="legend-item" style={{ color: levelVar(l.level) }}>
-                        {l.name}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="push-right">
-                    <button className="btn" onClick={() => void load('next')}>
-                      换一篇
-                    </button>
-                  </div>
-                </div>
-
-                <TextBody segments={text.segments} marked={marked} onWord={handleWord} />
-
-                <div className="toolbar toolbar-end">
-                  <button className="btn primary" onClick={() => void finish()}>
-                    读完
-                  </button>
-                  {/* 不写「N 个生词」—— 顶上那一栏已经用了「生词」表示
-                      「超出你水平的词」，同一个词两个含义会很混 */}
-                  <span className="muted">已标记 {marked.size}</span>
-                </div>
-              </>
             )}
           </>
         )}

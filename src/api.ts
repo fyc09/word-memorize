@@ -4,7 +4,6 @@ import type {
   FetchJob,
   GradeKey,
   LearnPayload,
-  MarkedEntry,
   Paged,
   ReviewPlan,
   StageCounts,
@@ -71,7 +70,7 @@ export const api = {
     post<{ payload: LearnPayload | null }>('/api/learn/open', { textId }),
 
   finish: (textId: number, sessionId?: number) =>
-    post<{ ok: boolean; sessionId?: number; marked: MarkedEntry[]; alreadyFinished?: boolean }>(
+    post<{ ok: boolean; sessionId?: number; marked: WordRow[]; alreadyFinished?: boolean }>(
       '/api/learn/finish',
       { textId, sessionId },
     ),

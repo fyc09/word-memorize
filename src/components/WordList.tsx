@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, PAGE } from '../api';
 import { useDelayedFlag } from '../hooks/useDelayedFlag';
 import { setParams, useRoute } from '../router';
-import { levelVar } from '../types';
 import type { Paged, StageCounts, WordRequest, WordRow } from '../types';
 import { Pager } from './Pager';
 import { Spinner } from './Spinner';
+import { WordTable } from './WordTable';
 
 interface Props {
   onOpenWord: (r: WordRequest) => void | Promise<void>;
@@ -20,13 +20,6 @@ const STAGE_CHIPS: { key: string; label: string }[] = [
   { key: 'learning', label: '学习中' },
   { key: 'mature', label: '已掌握' },
 ];
-
-const STAGE_CLS: Record<string, string> = {
-  new: 'pill',
-  reading: 'pill reading',
-  learning: 'pill science',
-  mature: 'pill academic',
-};
 
 /**
  * 词库与生词本是**同一个列表**。
@@ -154,57 +147,11 @@ export function WordList({ onOpenWord }: Props) {
         {!loading && rows?.total === 0 && <p className="empty">没有匹配的词</p>}
 
         {!loading && rows && rows.total > 0 && (
-          /* key 用数据版本号：新数据到位才重播进场动画 */
-          <table className="table list-anim" key={gen}>
-            <thead>
-              <tr>
-                <th>单词</th>
-                <th>释义</th>
-                <th>阶段</th>
-                <th>复习</th>
-                <th>下次</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.items.map((w) => (
-                <tr
-                  key={w.word}
-                  className="dict-row"
-                  onClick={() => void onOpenWord({ word: w.word, level: w.level })}
-                >
-                  <td className="word-cell" style={{ color: levelVar(w.level) }}>
-                    {w.word}
-                  </td>
-                  <td className="trans-cell">
-                    {(w.translation ?? '').split('\\n')[0].slice(0, 90) || '—'}
-                  </td>
-                  <td>
-                    {/* 没学过就没有阶段可言 —— 写「无数据」而不是留白，
-                        否则会让人以为是加载失败 */}
-                    {w.studied ? (
-                      <span className={STAGE_CLS[w.stage] ?? 'pill'}>{w.stageName}</span>
-                    ) : (
-                      <span className="muted">无数据</span>
-                    )}
-                  </td>
-                  {w.studied ? (
-                    <>
-                      <td className="num-cell">
-                        {w.reps}
-                        {(w.lapses ?? 0) > 0 && <span className="muted"> / 忘 {w.lapses}</span>}
-                      </td>
-                      <td className="muted">{dueLabel(w)}</td>
-                    </>
-                  ) : (
-                    <>
-                      <td />
-                      <td />
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          /* key 用数据版本号：新数据到位才重播进场动画。
+             套一层 wrapper —— 词表本体是共用组件，不接 className。 */
+          <div className="list-anim" key={gen}>
+            <WordTable rows={rows.items} onOpenWord={onOpenWord} />
+          </div>
         )}
 
         {!loading && rows && (
@@ -213,13 +160,4 @@ export function WordList({ onOpenWord }: Props) {
       </div>
     </div>
   );
-}
-
-function dueLabel(w: WordRow): string {
-  if (!w.due_at) return '—';
-  const diff = new Date(w.due_at).getTime() - Date.now();
-  if (diff <= 0) return '到期';
-  const days = diff / 86400000;
-  if (days < 1) return `${Math.round(days * 24)} 小时后`;
-  return `${days.toFixed(days < 3 ? 1 : 0)} 天后`;
 }

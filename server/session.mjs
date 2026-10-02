@@ -10,6 +10,7 @@
  */
 
 import { db, logActivity, parseDist } from './db.mjs';
+import { boilerplateStart } from './extract.mjs';
 import { attachAnalysis } from './select.mjs';
 
 const SESSION_COLS =
@@ -132,6 +133,15 @@ export function sessionPayload(session, level) {
       ...text,
       unknownRate: content ? unknown / content : 0,
       unknownCount: unknown,
+      /*
+       * 尾部样板文字的起点（联系方式、记者名单、标签云一类）。
+       * 不删 —— 删了是替用户判断内容；只把这个位置交给界面，
+       * 让它降级成灰色斜体，读者一眼就知道那不是正文。
+       *
+       * 现算不存库：成本是几次正则扫一篇上万字的正文，可忽略；
+       * 而存库就要改 schema + 重跑语料，且以后调规则还得再跑一次。
+       */
+      boilerplateFrom: boilerplateStart(text.body),
     },
     markedWords: markedWordList(session.text_id),
   };

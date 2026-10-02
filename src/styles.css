@@ -643,6 +643,17 @@ input[type="checkbox"]:checked::after {
   font-weight: 600;
 }
 
+/*
+ * 尾部样板文字：联系方式、记者名单、标签云、“Follow us on …”。
+ * 灰色斜体 —— 它不是正文，对学英语没有帮助（邮箱、电话、机构名），
+ * 但也不删，读者想看仍能看；排版上让它们退回背景，不再互文正文。
+ * 必须在 .w.lvN 之后：两者特异度相同（0,2,0），靠顺序盖过难度色。
+ */
+.prose .note {
+  color: var(--mut);
+  font-style: italic;
+}
+
 .legend {
   display: flex;
   gap: 11px;

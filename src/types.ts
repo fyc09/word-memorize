@@ -178,8 +178,7 @@ export interface TextDetail {
  * 没学过的词也在列表里（studied=false）：阶段为「无数据」，
  * reps / due_at 等字段为 null，界面留空。
  */
-export interface WordRow {
-  word: string;
+export interface WordRow {  word: string;
   level: number;
   phonetic: string | null;
   pos: string | null;
@@ -219,18 +218,14 @@ export interface FetchJob {
 /** 一次阅读会话的完整负载。 */
 export interface LearnPayload {
   session: { id: number; startedAt: string; finishedAt: string | null; status: string };
-  text: TextMeta & { segments: Segment[]; unknownRate: number; unknownCount: number };
+  text: TextMeta & {
+    segments: Segment[];
+    unknownRate: number;
+    unknownCount: number;
+    /** 尾部样板文字的起点（联系方式、记者名单、标签云），-1 表示没有 */
+    boilerplateFrom: number;
+  };
   markedWords: string[];
-}
-
-/** 读完一篇后返回的「本篇标记词释义面板」条目。 */
-export interface MarkedEntry {
-  word: string;
-  level: number;
-  phonetic: string | null;
-  pos: string | null;
-  translation: string | null;
-  tags: string[];
 }
 
 export interface AppState {

@@ -236,6 +236,38 @@ function wordDetail(word, excludeTextId, levelHint) {
   };
 }
 
+/**
+ * 把一行 SQL 结果变成词表的行。
+ *
+ * /api/words 和 /api/learn/finish 共用 —— 前者是整库词表，
+ * 后者是「刚读完这篇里标记的词」，两处的列表要求长得一模一样，
+ * 字段各造一份就会漂（原本 finish 只给 word/translation，
+ * 所以摘要页只能自己画一行，和单词本完全不同）。
+ */
+function toWordRow(r) {
+  const studied = r.reps !== null;
+  const card = studied
+    ? { ease: 2.5, interval_days: r.interval_days, reps: r.reps, lapses: r.lapses, verified: r.verified }
+    : null;
+  const stageKey = card ? stageOf(card) : 'none';
+  return {
+    word: r.word,
+    level: r.level,
+    phonetic: r.phonetic,
+    pos: r.pos,
+    translation: r.translation,
+    tags: r.tags,
+    reps: r.reps,
+    lapses: r.lapses,
+    due_at: r.due_at,
+    verified: r.verified,
+    interval_days: r.interval_days,
+    studied,
+    stage: stageKey,
+    stageName: stageKey === 'none' ? '无数据' : (STAGES[stageKey]?.name ?? stageKey),
+  };
+}
+
 /** 解析 JSON 列，脏数据不抛异常。 */
 function safeJson(raw) {
   if (!raw) return null;
@@ -426,17 +458,21 @@ const routes = {
       return { ok: true, alreadyFinished: true, marked: [] };
     }
 
+    // 列要和 /api/words 对齐（含学习状态），这样摘要里的词表
+    // 与单词本的行完全一致，不用客户端再造一个形状。
     const marked = db
       .prepare(`
-        SELECT v.word, v.level, w.phonetic, w.pos, w.translation, w.tags
+        SELECT COALESCE(w.level, v.level) AS level,
+               v.word, w.phonetic, w.pos, w.translation, w.tags, w.frq,
+               v.reps, v.lapses, v.due_at, v.verified, v.interval_days, v.created_at
         FROM vocab v
         LEFT JOIN words w ON w.word = v.word
         WHERE v.status != 'archived'
           AND v.word IN (SELECT word FROM text_words WHERE text_id = ?)
-        ORDER BY v.level DESC, v.word
+        ORDER BY level DESC, v.word
       `)
       .all(textId)
-      .map((r) => ({ ...r, tags: r.tags ? String(r.tags).split(/\s+/).filter(Boolean) : [] }));
+      .map(toWordRow);
 
     // 标记数由服务端数，不信客户端传的值 ——
     // 客户端可能因为中途刷新而少报，库里的事实才是准的。
@@ -592,35 +628,7 @@ const routes = {
       .prepare(`SELECT * FROM (${union}) ${order} LIMIT ? OFFSET ?`)
       .all(...params, ...orderParams, limit, offset);
 
-    const items = rows.map((r) => {
-      const studied = r.reps !== null;
-      const card = studied
-        ? {
-            ease: 2.5,
-            interval_days: r.interval_days,
-            reps: r.reps,
-            lapses: r.lapses,
-            verified: r.verified,
-          }
-        : null;
-      const stageKey = card ? stageOf(card) : 'none';
-      return {
-        word: r.word,
-        level: r.level,
-        phonetic: r.phonetic,
-        pos: r.pos,
-        translation: r.translation,
-        tags: r.tags,
-        reps: r.reps,
-        lapses: r.lapses,
-        due_at: r.due_at,
-        verified: r.verified,
-        interval_days: r.interval_days,
-        studied,
-        stage: stageKey,
-        stageName: stageKey === 'none' ? '无数据' : (STAGES[stageKey]?.name ?? stageKey),
-      };
-    });
+    const items = rows.map(toWordRow);
 
     return { items, total, offset, limit };
   },

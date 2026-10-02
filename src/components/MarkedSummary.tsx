@@ -1,24 +1,27 @@
-import { levelVar } from '../types';
-import type { MarkedEntry, WordRequest } from '../types';
+import type { WordRequest, WordRow } from '../types';
+import { WordTable } from './WordTable';
 
 interface Props {
-  entries: MarkedEntry[];
+  rows: WordRow[];
   onOpenWord: (r: WordRequest) => void | Promise<void>;
   onNext: () => void;
 }
 
 /**
- * 读完一篇后给出的「本篇标记词释义」面板。
+ * 读完一篇后，接在文章下面的「本篇标记词」。
  *
- * 用户刚读完，正是需要回头确认这些词含义的时候 ——
- * 所以这里直接把释义摊开，而不是让他再逐个点开。
+ * 不再单独占一屏：用户刚读完，正要回头确认这些词的意思，
+ * 文章留在上面才看得出它们的语境 —— 把正文撤掉等于把他刚读的东西收走。
+ *
+ * 词表用和单词本同一个组件（WordTable），列、行、点法完全一致；
+ * 数据也由服务端按同一个形状给（toWordRow），前端不必再造一个。
  */
-export function MarkedSummary({ entries, onOpenWord, onNext }: Props) {
+export function MarkedSummary({ rows, onOpenWord, onNext }: Props) {
   return (
     <section className="section">
       <div className="toolbar">
-        <h2 className="page-title">标记的词</h2>
-        <span className="muted">{entries.length}</span>
+        <h2 className="section-title">标记的词</h2>
+        <span className="muted">{rows.length}</span>
         <div className="push-right">
           <button className="btn primary" onClick={onNext}>
             下一篇
@@ -26,26 +29,10 @@ export function MarkedSummary({ entries, onOpenWord, onNext }: Props) {
         </div>
       </div>
 
-      {entries.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="empty">本篇没有标记生词</p>
       ) : (
-        <ul className="defs">
-          {entries.map((m) => (
-            <li
-              key={m.word}
-              className="def-row"
-              onClick={() => void onOpenWord({ word: m.word, level: m.level })}
-            >
-              <span className="def-word" style={{ color: levelVar(m.level) }}>
-                {m.word}
-              </span>
-              {m.phonetic && <span className="def-phon">/{m.phonetic}/</span>}
-              <span className="def-trans">
-                {(m.translation ?? '').split('\\n')[0].slice(0, 120)}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <WordTable rows={rows} onOpenWord={onOpenWord} />
       )}
     </section>
   );

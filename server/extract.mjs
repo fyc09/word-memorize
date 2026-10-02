@@ -61,6 +61,73 @@ export function normalizeSourceText(text) {
 }
 
 /**
+ * 尾部样板文字的锚点。
+ *
+ * 新闻稿、科研机构的页面常在正文后接一段段落/联系方式/标签云：
+ * 记者名单、邮箱、电话、“Related Terms” 标签云、“Follow us on …”。
+ * 这些对学英语没有帮助，但混在正文里会被按难度着色，
+ * 让一篇文章的尾部变成一串专有名词与缩写。
+ *
+ * 不删（删了是替用户判断内容），只标出位置让界面降级成灰色斜体。
+ *
+ * 锚点刻意收得很紧，宁可漏也不能误伤：PLOS ONE 的方法段里也会出现
+ * 邮箱式的写法，把“有 @ 就算样板”当规则会把正常正文涂灰。
+ */
+const TRAILER_ANCHORS = [
+  // 通讯社收尾标记。注意不能用 \b 收尾：- 是非单词字符，
+  // “-end- Joshua” 这种后面跟着空格的情形根本不构成单词边界，
+  // 写成 /-end-\b/ 会永远匹配不上。
+  /(?:^|\s)-end-(?=\s|$)/i,
+  /\bFollow us on\b/i, // 社交关注块
+  /\bGo to\s+\S+\.(?:com|org|net)\b[^.]{0,80}?\bfor more news\b/i,
+  /\bFor more information (?:about|on)\b/i, // 机构联系方式的开头
+  /\bRelated Terms\b/i, // 标签云（ScienceDaily / NASA）
+  /\bLast Updated\b/i,
+  /\bShare Details\b/i,
+  /\b(?:Media|Press)\s+Contact\b/i,
+].map((re) => new RegExp(re.source, `${re.flags}g`));
+
+/**
+ * 找尾部样板的起始位置，找不到返回 -1。
+ *
+ * 两道关：先只认高精度锚点，再要求它落在正文后 45% ——
+ * 同样一句话出现在开头很可能是正文（比如访谈里说
+ * “for more information about …”），出现在末尾才当样板。
+ *
+ * @param {string} text 已归一过的正文
+ */
+export function boilerplateStart(text) {
+  if (!text) return -1;
+  const notBefore = Math.floor(text.length * 0.55);
+
+  let hit = -1;
+  for (const re of TRAILER_ANCHORS) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text))) {
+      if (m[0].length === 0) re.lastIndex += 1;
+      // 只看后 45%；同一锚点可能前面也出现过
+      if (m.index >= notBefore) {
+        if (hit === -1 || m.index < hit) hit = m.index;
+        break;
+      }
+    }
+  }
+  if (hit === -1) return -1;
+  return blockStart(text, hit);
+}
+
+/**
+ * 退到锚点所在那一句/那一行的开头，让整块一起降级。
+ * 退得太远（超过 200 字）就宁可从锚点本身开始 ——
+ * 那说明中间没有可用的句子边界，再退就会吃掉真正的正文。
+ */
+function blockStart(text, idx) {
+  const cut = Math.max(text.lastIndexOf('\n', idx) + 1, text.lastIndexOf('. ', idx) + 2);
+  return cut >= 0 && idx - cut <= 200 ? cut : idx;
+}
+
+/**
  * 把一段 HTML 片段转成纯文本，**在标签边界处插入空格**。
  *
  * 这是关键：cheerio 的 .text() 会把相邻内联标签的字直接粘起来。
