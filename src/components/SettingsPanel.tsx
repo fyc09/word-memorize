@@ -10,7 +10,6 @@ interface Props {
 
 export function SettingsPanel({ state, onStateChange }: Props) {
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const setLevel = async (level: number) => {
@@ -19,7 +18,6 @@ export function SettingsPanel({ state, onStateChange }: Props) {
     try {
       await api.setSettings({ level });
       await onStateChange();
-      setMsg(`水平 L${level}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -51,11 +49,11 @@ export function SettingsPanel({ state, onStateChange }: Props) {
   const startFetch = async () => {
     setBusy(true);
     setError(null);
-    setMsg(null);
     try {
-      const { alreadyRunning } = await api.fetchStart(12);
+      // 不需要把结果回声给用户：按钮会变成「正在抓取」并置灰，
+      // 下面那行还会显示开始时间。
+      await api.fetchStart(12);
       await onStateChange();
-      setMsg(alreadyRunning ? '已有抓取任务在跑' : '已开始抓取');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -131,7 +129,9 @@ export function SettingsPanel({ state, onStateChange }: Props) {
             <button className="btn primary" disabled={running || busy} onClick={() => void startFetch()}>
               {running ? '正在抓取' : '抓取新文章'}
             </button>
-            {running && <span className="muted">后台进行中，可以离开本页</span>}
+            {/* 只说「可以离开」这件按钮上看不出来的事，
+                前半句「后台进行中」已经在按钮上了 */}
+            {running && <span className="muted">可以离开本页</span>}
           </div>
 
           {job && (
@@ -190,8 +190,6 @@ export function SettingsPanel({ state, onStateChange }: Props) {
             </span>
           </div>
         </div>
-
-        {msg && <div className="notice">{msg}</div>}
       </div>
     </div>
   );

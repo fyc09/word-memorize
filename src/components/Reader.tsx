@@ -204,8 +204,6 @@ export function Reader({ state, onStateChange, onOpenWord }: Props) {
                   </div>
                 </div>
 
-                {notice && <div className="notice">{notice}</div>}
-
                 <TextBody
                   segments={text.segments}
                   marked={marked}
@@ -217,7 +215,9 @@ export function Reader({ state, onStateChange, onOpenWord }: Props) {
                   <button className="btn primary" onClick={() => void finish()}>
                     读完
                   </button>
-                  <span className="muted">{marked.size} 个生词</span>
+                  {/* 不写「N 个生词」—— 顶上那一栏已经用了「生词」表示
+                      「超出你水平的词」，同一个词两个含义会很混 */}
+                  <span className="muted">已标记 {marked.size}</span>
                 </div>
               </>
             )}

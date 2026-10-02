@@ -124,7 +124,9 @@ export function WordList({ onOpenWord }: Props) {
             placeholder="搜索单词"
             onChange={(e) => onSearch(e.target.value)}
           />
-          {rows && <span className="muted">共 {rows.total}</span>}
+          {/* 只在搜索时显示命中数 —— 平时筛选条上的计数就是当前这个数，
+              再写一行「共 N」是同一个数字出现两遍 */}
+          {q && rows && <span className="muted">命中 {rows.total}</span>}
         </div>
 
         <div className="chips chips-wrap">

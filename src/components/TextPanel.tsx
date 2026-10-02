@@ -107,10 +107,6 @@ export function TextPanel({ textId, onOpenWord, onStateChange, onGoLearn }: Prop
           L{m.avg_level.toFixed(1)}
         </span>
         <span className="variant">
-          <em>标记</em>
-          {m.n_marked ?? 0}
-        </span>
-        <span className="variant">
           <em>读过</em>
           {m.times_read}
         </span>
@@ -137,9 +133,11 @@ export function TextPanel({ textId, onOpenWord, onStateChange, onGoLearn }: Prop
         )}
       </div>
 
-      {detail.markedWords.length > 0 && (
-        <div className="card-section">
-          <h3>标记的生词 ({detail.markedWords.length})</h3>
+        {detail.markedWords.length > 0 && (
+          <div className="card-section">
+            {/* 计数只写在这里。上方元信息行里原本还有一个「标记 N」，
+                同一个数字在同一屏出现两遍没有意义 */}
+            <h3>标记的生词 ({detail.markedWords.length})</h3>
           <div className="taglist">
             {detail.markedWords.map((w) => (
               <button

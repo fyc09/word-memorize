@@ -38,7 +38,6 @@ export function ReviewSession({ state, onStateChange }: Props) {
   // 是否主动要过提示。回忆阶段默认不给任何线索，
   // 因为音标一显示就等于把答案读出来了。
   const [usedHint, setUsedHint] = useState(false);
-  const [lastResult, setLastResult] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,7 +46,6 @@ export function ReviewSession({ state, onStateChange }: Props) {
     setPhase('cloze');
     setTyped('');
     setUsedHint(false);
-    setLastResult(null);
     try {
       setPlan(await api.reviewPlan(12));
     } catch (e) {
@@ -68,8 +66,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
     setLoading(true);
     api
       .grade({ word: item.word, textId: item.textId, grade, typed, usedHint })
-      .then((res) => {
-        setLastResult(`${item.word} / ${formatInterval(res.intervalDays)}后`);
+      .then(() => {
         setIdx((i) => i + 1);
         setPhase('cloze');
         setTyped('');
@@ -142,7 +139,6 @@ export function ReviewSession({ state, onStateChange }: Props) {
             <h2>本轮完成</h2>
             <p className="desc">
               {plan.items.length} 词 / {plan.texts.length} 篇
-              {lastResult && <> / 最后 {lastResult}</>}
             </p>
             <button className="btn primary" onClick={() => void load()}>
               再来一轮
@@ -287,8 +283,6 @@ export function ReviewSession({ state, onStateChange }: Props) {
                 </>
               )}
             </div>
-
-            {lastResult && <div className="notice">{lastResult}</div>}
           </>
         )}
       </div>
@@ -342,10 +336,4 @@ function highlightContext(context: string, answer: string) {
   }
   if (pos < context.length) nodes.push(context.slice(pos));
   return nodes;
-}
-
-function formatInterval(days: number): string {
-  if (days < 1) return `${Math.round(days * 24)} 小时`;
-  if (days < 30) return `${days.toFixed(days < 3 ? 1 : 0)} 天`;
-  return `${(days / 30).toFixed(1)} 个月`;
 }
