@@ -73,17 +73,17 @@ export const pathForTab = (tab: Tab): string => `/${tab}`;
 
 interface NavState {
   app: true;
-  /**
-   * 面板栈深 = 要退几条历史才能回到「无面板」那一层。
+/**
+   * 面板栈深 = 距最近一个「无面板」条目有几条历史。
    *
    * 0 = 主视图；1 = 第一个面板层；以此类推。
-   * 「关闭」就是 `history.go(-depth)`。切页签、从主视图点开、面板内深入
-   * 都会显式写这个值，所以它和「当前面板有几层」始终一致。
+   * 「关闭」就是 `history.go(-depth)`。
    *
-   * 前提是 initRouter 会给深链补一条「无面板」的底层，
-   * 否则 depth 会比实际可退的条数多 1，`go(-depth)` 会退过头。
+   * 关键不变式：depth 永远等于「要退几条才能回到无面板那一层」，
+   * 所以切页签、从主视图点开、面板内深入都必须显式维护它，
+   * 任何时候都不能重置成 1（否则关闭会退得不够）。
    */
-  depth: number;
+depth: number;
   /** 这个条目是我们自己压出来的吗。直接打开分享链接时为 true */
   root: boolean;
   /**
@@ -241,9 +241,20 @@ export function setParams(
   apply(url, { replace, depth: st?.depth ?? 0, root: st?.root ?? false, from: st?.from });
 }
 
-/** 主视图里点击 → 重新起一层（丢弃之前的面板路径）。 */
+/**
+ * 主视图里点击 → 打开面板。
+ *
+ * depth 必须**累加**而不是重置成 1。主视图可以反复点（面板只是旁边一列，
+ * 正文仍然可点），每次 push 都会在历史里留一条 —— 如果 depth 重置成 1，
+ * 「关闭」的 `go(-depth)` 就只退一步，退到上一个面板而不是回到主视图，
+ * 用户得一个一个关。
+ *
+ * 所以 depth 的语义始终是「距最近一个无面板条目有几条」，
+ * 保证 `go(-depth)` 一定能落到那一层。
+ * 「重置路径」只体现在不写 from（返回按钮 tooltip 因此只说「返回」）。
+ */
 export function openPeek(peek: Peek) {
-  apply(withPeek(peek), { depth: 1 });
+  apply(withPeek(peek), { depth: panelDepth() + 1 });
 }
 
 /**
