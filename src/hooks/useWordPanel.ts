@@ -12,9 +12,11 @@ import type { WordDetail, WordRequest } from '../types';
 interface Options {
   onStateChange: () => void | Promise<void>;
   onError: (message: string) => void;
+  /** 标记状态变了。正文要立刻出现/去掉下划线，所以得通报一声。 */
+  onMarkedChange?: (word: string, marked: boolean) => void;
 }
 
-export function useWordPanel({ onStateChange, onError }: Options) {
+export function useWordPanel({ onStateChange, onError, onMarkedChange }: Options) {
   const [request, setRequest] = useState<WordRequest | null>(null);
   const [detail, setDetail] = useState<WordDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,15 +55,17 @@ export function useWordPanel({ onStateChange, onError }: Options) {
       if (detail?.card) {
         await api.unmark(request.word);
         setDetail(await api.word(request.word, request.level));
+        onMarkedChange?.(request.word, false);
       } else {
         const res = await api.mark(request.word);
         setDetail(res.detail);
+        onMarkedChange?.(request.word, true);
       }
       await onStateChange();
     } catch (e) {
       onError(e instanceof Error ? e.message : String(e));
     }
-  }, [request, detail, onStateChange, onError]);
+  }, [request, detail, onStateChange, onError, onMarkedChange]);
 
   return {
     request,

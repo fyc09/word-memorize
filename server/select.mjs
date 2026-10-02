@@ -493,6 +493,9 @@ export function exampleSentences(word, opts = {}) {
       sentenceId: r.id,
       textId: r.text_id,
       sentence: r.text,
+      // 把分词结果一并返回：例句要和正文一样按难度着色、可点查词，
+      // 而客户端没有词典，分不了词。
+      segments: analyzeText(r.text, dict).segments,
       title: r.title,
       source: r.source,
       category: r.category,

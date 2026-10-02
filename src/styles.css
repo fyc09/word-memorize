@@ -592,12 +592,27 @@ input[type="checkbox"]:checked::after {
   background: var(--hover);
 }
 
-.show-levels .w.lv2 { color: var(--lv2); }
-.show-levels .w.lv3 { color: var(--lv3); }
-.show-levels .w.lv4 { color: var(--lv4); }
-.show-levels .w.lv5 { color: var(--lv5); }
-.show-levels .w.lv6 { color: var(--lv6); }
-.show-levels .w.lv0 { color: var(--lv0); }
+/*
+ * 难度 = 文字颜色，生词 = 下划线。
+ * 只有高于「简单」的词才染色 —— 语料里 77% 是 L1，
+ * 保持正文本色才是正常阅读观感，「没有颜色」本身也是信息。
+ *
+ * 不挂在 .show-levels 下面：难度现在总是显示，而例句（不在正文容器里）
+ * 也要同样的颜色 —— 两处的观感必须一致。
+ */
+.w.lv2 { color: var(--lv2); }
+.w.lv3 { color: var(--lv3); }
+.w.lv4 { color: var(--lv4); }
+.w.lv5 { color: var(--lv5); }
+.w.lv6 { color: var(--lv6); }
+.w.lv0 { color: var(--lv0); }
+
+/* 例句里被查的那个词：底色提一下，让它从周围跳出来 */
+.w.focus {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 4px;
+}
 
 .w.marked {
   text-decoration: underline;
@@ -1159,30 +1174,15 @@ input[type="checkbox"]:checked::after {
   min-width: 0;
 }
 
-.plan-summary {
-  padding-bottom: 18px;
-  margin-bottom: 22px;
-  border-bottom: 1px solid var(--line);
+.review-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 18px;
 }
 
-.plan-summary h2 {
-  font-size: 16px;
-  font-weight: 650;
-}
-
-.plan-texts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.plan-text {
-  padding: 5px 11px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  color: var(--mut);
-  font-size: 12.5px;
+/* 卡片页的标题紧贴词卡，别再叠一截间距 */
+.review-title-top {
+  margin-bottom: 18px;
 }
 
 .qcard {
@@ -1292,13 +1292,24 @@ input[type="checkbox"]:checked::after {
   padding: 14px 16px;
   border-radius: var(--r);
   background: var(--accent-soft);
-  font-size: 14.5px;
-}
-
-.q-answer-line b {
   font-family: var(--font-serif);
   font-size: 19px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* 正确答案＝强调色；填错的那个用正文本色，两边同一套衬线加粗 */
+.q-answer-line b {
   color: var(--accent);
+}
+
+.ans-sep {
+  margin: 0 8px;
+  color: var(--mut);
+}
+
+.ans-typed {
+  color: var(--fg);
 }
 
 .grade-row {

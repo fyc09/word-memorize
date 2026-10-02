@@ -64,10 +64,25 @@ export function App() {
   }, [reload]);
 
   const onError = useCallback((message: string) => setError(message), []);
-  const word = useWordPanel({ onStateChange: reload, onError });
+
+  // 正文里已标记的词。放在 App 而不是 Reader —— 词卡（旁边一列）里标记后，
+  // 正文要立刻长出下划线，两边得共用一个来源。
+  const [markedWords, setMarkedWords] = useState<Set<string>>(new Set());
+  const onMarkedWords = useCallback((words: string[]) => setMarkedWords(new Set(words)), []);
+  const onMarkedChange = useCallback((w: string, m: boolean) => {
+    setMarkedWords((prev) => {
+      const next = new Set(prev);
+      if (m) next.add(w);
+      else next.delete(w);
+      return next;
+    });
+  }, []);
+
+  const word = useWordPanel({ onStateChange: reload, onError, onMarkedChange });
   useFetchJob(state?.fetchJob, reload);
 
-  // 主视图里点击 = 重新起一层（丢弃之前的面板路径）
+  // 主视图里点击 → 打开面板。
+  // 注意 depth 会累加（见 router.ts）：主视图可以反复点，关闭要一次全关。
   const openWordFromMain = useCallback(
     (r: WordRequest) => {
       const peek: Peek = { kind: 'word', word: r.word, level: r.level };
@@ -156,7 +171,13 @@ export function App() {
           )}
 
           {route.tab === 'learn' && state && (
-            <Reader state={state} onStateChange={reload} onOpenWord={openWordFromMain} />
+            <Reader
+              state={state}
+              marked={markedWords}
+              onMarkedWords={onMarkedWords}
+              onStateChange={reload}
+              onOpenWord={openWordFromMain}
+            />
           )}
           {route.tab === 'review' && state && (
             <ReviewSession state={state} onStateChange={reload} />
@@ -187,6 +208,8 @@ export function App() {
               detail={word.detail}
               loading={word.loading}
               marked={word.marked}
+              markedWords={markedWords}
+              onOpenWord={openWordFromPanel}
               onMark={() => void word.toggleMark()}
               onUnmark={() => void word.toggleMark()}
             />

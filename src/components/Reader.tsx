@@ -8,21 +8,20 @@ import { Spinner } from './Spinner';
 
 interface Props {
   state: AppState;
+  /** 当前这篇里已标记的词。上面 App 托管，因为词卡里标记也要立刻反映到正文下划线 */
+  marked: Set<string>;
+  onMarkedWords: (words: string[]) => void;
   onStateChange: () => void | Promise<void>;
   onOpenWord: (r: WordRequest) => void | Promise<void>;
 }
 
 type Payload = LearnPayload & { text: TextMeta & { segments: Segment[] } };
 
-export function Reader({ state, onStateChange, onOpenWord }: Props) {
+export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord }: Props) {
   const [payload, setPayload] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const [marked, setMarked] = useState<Set<string>>(new Set());
-  const [showLevels, setShowLevels] = useState(true);
-  const [clickToMark, setClickToMark] = useState(false);
   const [summary, setSummary] = useState<MarkedEntry[] | null>(null);
 
   /**
@@ -46,7 +45,7 @@ export function Reader({ state, onStateChange, onOpenWord }: Props) {
           const { payload: existing } = await api.current();
           if (existing) {
             setPayload(existing as Payload);
-            setMarked(new Set(existing.markedWords));
+            onMarkedWords(existing.markedWords);
             setResumed(true);
             return;
           }
@@ -58,7 +57,7 @@ export function Reader({ state, onStateChange, onOpenWord }: Props) {
           return;
         }
         setPayload(res.payload as Payload);
-        setMarked(new Set(res.payload.markedWords));
+        onMarkedWords(res.payload.markedWords);
         setResumed(false);
         void onStateChange();
       } catch (e) {
@@ -76,24 +75,6 @@ export function Reader({ state, onStateChange, onOpenWord }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const mark = useCallback(
-    async (word: string, textId: number) => {
-      setMarked((prev) => new Set(prev).add(word));
-      try {
-        await api.mark(word, textId);
-        void onStateChange();
-      } catch (e) {
-        setMarked((prev) => {
-          const next = new Set(prev);
-          next.delete(word);
-          return next;
-        });
-        setError(e instanceof Error ? e.message : String(e));
-      }
-    },
-    [onStateChange],
-  );
-
   const finish = useCallback(async () => {
     if (!text) return;
     try {
@@ -105,14 +86,13 @@ export function Reader({ state, onStateChange, onOpenWord }: Props) {
     }
   }, [text, payload, onStateChange]);
 
-  /** 点正文里的词：开了「点击即标记」就先标记，然后总是打开释义面板。 */
+  /** 点正文里的词 → 打开词卡。标记靠词卡里的按钮，不再「点击即标记」。 */
   const handleWord = useCallback(
-    (word: string, level: number, _surface: string) => {
+    (word: string, level: number) => {
       if (!text) return;
-      if (clickToMark && level >= 2 && !marked.has(word)) void mark(word, text.id);
       void onOpenWord({ word, level });
     },
-    [text, clickToMark, marked, mark, onOpenWord],
+    [text, onOpenWord],
   );
 
   const legendLevels = state.levels.filter((l) => l.level > 0);
@@ -174,22 +154,6 @@ export function Reader({ state, onStateChange, onOpenWord }: Props) {
             ) : (
               <>
                 <div className="toolbar">
-                  <label className="toggle">
-                    <input
-                      type="checkbox"
-                      checked={showLevels}
-                      onChange={(e) => setShowLevels(e.target.checked)}
-                    />
-                    显示难度
-                  </label>
-                  <label className="toggle">
-                    <input
-                      type="checkbox"
-                      checked={clickToMark}
-                      onChange={(e) => setClickToMark(e.target.checked)}
-                    />
-                    点击即标记
-                  </label>
                   <div className="legend">
                     {legendLevels.map((l) => (
                       <span key={l.level} className="legend-item" style={{ color: levelVar(l.level) }}>
@@ -204,12 +168,7 @@ export function Reader({ state, onStateChange, onOpenWord }: Props) {
                   </div>
                 </div>
 
-                <TextBody
-                  segments={text.segments}
-                  marked={marked}
-                  showLevels={showLevels}
-                  onWord={handleWord}
-                />
+                <TextBody segments={text.segments} marked={marked} onWord={handleWord} />
 
                 <div className="toolbar toolbar-end">
                   <button className="btn primary" onClick={() => void finish()}>

@@ -50,6 +50,8 @@ export interface Example {
   sentenceId: number;
   textId: number;
   sentence: string;
+  /** 分词结果：例句要和正文一样按难度着色、可点查词，而客户端没有词典 */
+  segments?: Segment[];
   title: string | null;
   source: string;
   category: string;

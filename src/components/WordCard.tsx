@@ -1,9 +1,12 @@
 import { levelVar } from '../types';
-import type { WordDetail } from '../types';
+import type { WordDetail, WordRequest } from '../types';
 import { ActivityLog } from './ActivityLog';
 import { Spinner } from './Spinner';
+import { WordSpans } from './TextBody';
 
-/** 把句子高亮出目标词，用于「显示正确答案」这一步。 */
+const NO_MARKS: Set<string> = new Set();
+
+/** 没有分词结果时的退路：只把目标词高亮出来。 */
 function highlightAnswer(sentence: string, answer: string): React.ReactNode {
   const idx = sentence.toLowerCase().indexOf(answer.toLowerCase());
   if (idx < 0) return sentence;
@@ -22,9 +25,20 @@ interface Props {
   marked: boolean;
   onMark: () => void;
   onUnmark: () => void;
+  /** 例句要和正文一致：已标记的词带下划线 */
+  markedWords?: Set<string>;
+  onOpenWord?: (r: WordRequest) => void;
 }
 
-export function WordCard({ detail, loading, marked, onMark, onUnmark }: Props) {
+export function WordCard({
+  detail,
+  loading,
+  marked,
+  onMark,
+  onUnmark,
+  markedWords,
+  onOpenWord,
+}: Props) {
   if (loading) {
     return (
       <div className="loading">
@@ -98,7 +112,18 @@ export function WordCard({ detail, loading, marked, onMark, onUnmark }: Props) {
         ) : (
           detail.examples.map((ex) => (
             <div key={ex.sentenceId} className="example">
-              {highlightAnswer(ex.sentence, detail.word)}
+              {/* 例句按正文的规矩渲染：每个词按难度着色、可点查词。
+                  服务端已经分好词（客户端没有词典），没给就退回高亮。 */}
+              {ex.segments ? (
+                <WordSpans
+                  segments={ex.segments}
+                  marked={markedWords ?? NO_MARKS}
+                  focus={detail.word}
+                  onWord={(w, l) => onOpenWord?.({ word: w, level: l })}
+                />
+              ) : (
+                highlightAnswer(ex.sentence, detail.word)
+              )}
               <span className="example-src">
                 {ex.source} / {ex.title?.slice(0, 48) ?? '无标题'}
               </span>
