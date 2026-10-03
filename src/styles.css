@@ -46,8 +46,10 @@
   --lv5: #c4a87c;
   --lv6: #cc918b;
 
-  --hl: rgba(221, 169, 78, 0.2);
-  --hl-edge: #dda94e;
+  /* 揭示答案时的高亮。和 --lv5 用同一支琥珀 ——
+     原来是旧的高饱和 #dda94e，配色降饱和后它会在旁边显得格格不入 */
+  --hl: rgba(196, 168, 124, 0.2);
+  --hl-edge: #c4a87c;
   --sel: #2b3f55;
   --hover: #262b33;
 
@@ -274,11 +276,6 @@ a:hover {
   }
 }
 
-/* 面板里换一层（点词、看记录）时重播一次，让人看得出「换了一页」 */
-.panel-swap {
-  animation: viewin var(--slow) var(--ease);
-}
-
 /*
  * 返回 / 关闭固定在面板顶部。
  *
@@ -443,16 +440,6 @@ a:hover {
   font-variant-numeric: tabular-nums;
 }
 
-.linkbtn {
-  color: var(--accent);
-  font-size: 13px;
-}
-
-.linkbtn:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 .push-right {
   margin-left: auto;
 }
@@ -469,19 +456,11 @@ a:hover {
   margin-top: 32px;
 }
 
-.toolbar-center {
-  justify-content: center;
-}
-
 .page-title {
   margin: 0;
   font-size: 22px;
   font-weight: 650;
   letter-spacing: -0.015em;
-}
-
-.no-margin {
-  margin: 0;
 }
 
 .muted {
@@ -843,14 +822,6 @@ input[type="checkbox"]:checked::after {
   padding-bottom: 0;
 }
 
-.example-mark {
-  padding: 0 2px;
-  border-radius: 3px;
-  background: var(--hl);
-  box-shadow: inset 0 -2px 0 var(--hl-edge);
-  font-weight: 600;
-}
-
 .example-src {
   display: block;
   margin-top: 6px;
@@ -996,12 +967,6 @@ input[type="checkbox"]:checked::after {
   max-width: 460px;
   color: var(--mut);
   font-size: 13.5px;
-}
-
-.phon-cell {
-  color: var(--mut);
-  font-size: 12.5px;
-  white-space: nowrap;
 }
 
 .num-cell {
@@ -1472,11 +1437,6 @@ input[type="checkbox"]:checked::after {
   font-size: 10.5px;
   line-height: 15px;
   text-align: center;
-}
-
-.hint-used {
-  color: var(--warn);
-  font-size: 12.5px;
 }
 
 /* ---------------------------------------------------------------- 提示 */
