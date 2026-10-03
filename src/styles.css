@@ -1290,6 +1290,15 @@ input[type="checkbox"]:checked::after {
   text-transform: uppercase;
 }
 
+/*
+ * 标题进了工具栏就不要这个下外边距。
+ * .toolbar 是 align-items:center 的横向行，而这个 margin 是为
+ * 「标题在上、内容在下」的堆叠布局写的 —— 留在横向行里会把标题往上顶半格。
+ */
+.toolbar .section-title {
+  margin-bottom: 0;
+}
+
 .section .desc {
   margin: 10px 0 0;
   color: var(--mut);

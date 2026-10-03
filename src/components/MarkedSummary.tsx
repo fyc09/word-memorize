@@ -20,10 +20,11 @@ export function MarkedSummary({ rows, onOpenWord, onNext }: Props) {
   return (
     <section className="section">
       <div className="toolbar">
-        <h2 className="section-title">标记的词</h2>
-        <span className="muted">{rows.length}</span>
+        {/* 计数就写在标题里，和「记录 (2)」「真实例句 (6)」一样。
+            拆成两个元素的话，两边的字号不同，一旦居中就会基线错位。 */}
+        <h2 className="section-title">标记的词 ({rows.length})</h2>
         <div className="push-right">
-          <button className="btn primary" onClick={onNext}>
+          <button className="btn primary" type="button" onClick={onNext}>
             下一篇
           </button>
         </div>
