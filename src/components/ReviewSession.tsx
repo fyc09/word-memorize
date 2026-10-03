@@ -116,8 +116,10 @@ export function ReviewSession({ state, onStateChange }: Props) {
     async (want: boolean) => {
       if (!item) return;
       try {
-        if (want) await api.mark(item.word);
-        else await api.unmark(item.word);
+        if (want) {
+          // 出处用复习时这条语境所在的文章与句子
+          await api.mark(item.word, { textId: item.textId, sentenceId: item.sentenceId });
+        } else await api.unmark(item.word);
         setCardDetail(await api.word(item.word, item.level));
         void onStateChange();
       } catch (e) {

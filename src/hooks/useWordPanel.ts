@@ -26,7 +26,17 @@ export function useWordPanel({ onStateChange, onError, onMarkedChange }: Options
 
   const open = useCallback(
     async (r: WordRequest) => {
-      setRequest(r);
+      /*
+       * 出处沿用上一次带过来的。
+       *
+       * 面板是 URL 驱动的：点击时先把 peek 推入历史，随后「URL 变了就同步面板」
+       * 那条 effect 会再用从地址栏反解出来的 peek 调一次 open ——
+       * 而地址栏里只有 word，没有出处（它只是本次交互的上下文）。
+       * 不沿用的话，第二次调用会把刚记下的出处抹掉。
+       */
+      setRequest((prev) =>
+        r.origin || !prev || prev.word !== r.word ? r : { ...r, origin: prev.origin },
+      );
       setLoading(true);
       const id = ++reqId.current;
       try {
@@ -57,7 +67,7 @@ export function useWordPanel({ onStateChange, onError, onMarkedChange }: Options
         setDetail(await api.word(request.word, request.level));
         onMarkedChange?.(request.word, false);
       } else {
-        const res = await api.mark(request.word);
+        const res = await api.mark(request.word, request.origin);
         setDetail(res.detail);
         onMarkedChange?.(request.word, true);
       }

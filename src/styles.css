@@ -1143,7 +1143,11 @@ input[type="checkbox"]:checked::after {
  * 内层的 padding 必须跟着一起收 —— 盒子的高度不可能小于 padding，
  * 不收的话动画会停在 padding 那一档，等内容被移除才啪地归零。
  */
-.log-open {
+/*
+ * 折叠容器：grid-template-rows 0fr → 1fr 能真正动画到内容自身的高度，
+ * 不需要预先知道有多高。记录列表与文本库「查看原文」共用同一套。
+ */
+.fold-body {
   display: grid;
   grid-template-rows: 0fr;
   opacity: 0;
@@ -1152,16 +1156,57 @@ input[type="checkbox"]:checked::after {
     opacity var(--slow) var(--ease);
 }
 
-.log-open.in {
+.fold-body.in {
   grid-template-rows: 1fr;
   opacity: 1;
 }
 
-.log-open-in {
+.fold-body-in {
   min-height: 0;
   overflow: hidden;
-  padding: 0 0 0 6px;
   transition: padding var(--slow) var(--ease);
+}
+
+/* 记录列表的展开内容相对时间列缩进一点，看得出从属于那一行 */
+.log .fold-body-in {
+  padding-left: 6px;
+}
+
+/*
+ * 「查看原文」的折叠头。整行可点、箭头在右端，
+ * 字号与字距刻意和 .card-section h3 一致 —— 它在面板里就是一个分区标题。
+ */
+.fold-head {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 8px;
+  color: var(--mut);
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--fast) var(--ease);
+}
+
+.fold-head:hover {
+  color: var(--fg);
+}
+
+/*
+ * 标记时遇到这个词的原句。
+ * 只在展开详情里出现 —— 它又长又只是补充信息，
+ * 放进折叠行会把列表的行高和宽度都撑开，扫读就废了。
+ */
+.log-quote {
+  margin: 8px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+  color: var(--mut);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .log-open.in .log-open-in {

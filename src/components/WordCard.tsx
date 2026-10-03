@@ -119,7 +119,14 @@ export function WordCard({ detail, loading, marked, onMark, onUnmark, onOpenWord
                   segments={ex.segments}
                   marked={exampleMarks}
                   focus={detail.word}
-                  onWord={(w, l) => onOpenWord?.({ word: w, level: l })}
+                  /* 出处带上例句来自哪篇哪句 —— 在这句里遇到它，就记这一句 */
+                  onWord={(w, l) =>
+                    onOpenWord?.({
+                      word: w,
+                      level: l,
+                      origin: { textId: ex.textId, sentenceId: ex.sentenceId },
+                    })
+                  }
                 />
               ) : (
                 highlightAnswer(ex.sentence, detail.word)
@@ -169,17 +176,25 @@ export function WordCard({ detail, loading, marked, onMark, onUnmark, onOpenWord
         </div>
       )}
 
-      <div className="btn-row">
-        {marked ? (
-          <button className="btn danger wide" onClick={onUnmark}>
-            取消标记
-          </button>
-        ) : (
-          <button className="btn primary wide" onClick={onMark}>
-            标记为生词
-          </button>
-        )}
-      </div>
+      {/*
+        复习过的词不摆「取消标记」。
+        取消对它们只做归档（保留复习进度），点了既不消失也没提示，
+        一个按下去没反应的按钮比没有更糟 —— 所以直接不给。
+        没标记过的照旧可以标。
+      */}
+      {(!marked || (detail.card?.reps ?? 0) === 0) && (
+        <div className="btn-row">
+          {marked ? (
+            <button className="btn danger wide" type="button" onClick={onUnmark}>
+              取消标记
+            </button>
+          ) : (
+            <button className="btn primary wide" type="button" onClick={onMark}>
+              标记为生词
+            </button>
+          )}
+        </div>
+      )}
     </>
   );
 }

@@ -85,11 +85,14 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
     }
   }, [text, payload, onStateChange]);
 
-  /** 点正文里的词 → 打开词卡。标记靠词卡里的按钮，不再「点击即标记」。 */
+  /**
+   * 点正文里的词 → 打开词卡。标记靠词卡里的按钮，不再「点击即标记」。
+   * 带上 text.id 作为出处 —— 在这篇里遇到它，也是在这篇里标的。
+   */
   const handleWord = useCallback(
     (word: string, level: number) => {
       if (!text) return;
-      void onOpenWord({ word, level });
+      void onOpenWord({ word, level, origin: { textId: text.id } });
     },
     [text, onOpenWord],
   );

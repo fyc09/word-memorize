@@ -100,11 +100,12 @@ export function App() {
 
   // 主视图里点击 → 打开面板。
   // 注意 depth 会累加（见 router.ts）：主视图可以反复点，关闭要一次全关。
+  // 传 r 而不是 peek：出处（在哪篇文章/哪一句遇到的）只有 r 带着，
+  // 而 peek 是要进地址栏的，不装这种一次性上下文。
   const openWordFromMain = useCallback(
     (r: WordRequest) => {
-      const peek: Peek = { kind: 'word', word: r.word, level: r.level };
-      openPeek(peek);
-      void word.open(peek);
+      openPeek({ kind: 'word', word: r.word, level: r.level });
+      void word.open(r);
     },
     [word],
   );
@@ -119,7 +120,7 @@ export function App() {
       const peek: Peek = { kind: 'word', word: r.word, level: r.level };
       const cur = route.peek;
       drillPeek(peek, cur ? peekLabel(cur) : undefined);
-      void word.open(peek);
+      void word.open(r);
     },
     [route.peek, word],
   );

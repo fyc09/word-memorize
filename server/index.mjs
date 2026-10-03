@@ -28,6 +28,7 @@ import {
   textLibraryCount,
 } from './session.mjs';
 import { latestJob, runningJob, reapStaleJobs, startFetchJob } from './jobs.mjs';
+import { boilerplateStart } from './extract.mjs';
 import { CATEGORIES, FEEDS } from './feeds.mjs';
 
 // 上一次进程被杀掉时留下的 'running' 任务会永远转圈，
@@ -126,21 +127,52 @@ function currentShowLevels() {
 
 // ---------------------------------------------------------------- 数据操作
 
+/**
+ * 标记一个词时的「出处」。
+ *
+ * 客户端给得出上下文就直接用（点例句里的词、复习时评的词）；
+ * 给不出就看当前阅读会话 —— 用户正在读哪一篇，多半就是他在哪儿遇到这个词。
+ * sentenceId 没给就在这篇里现找一句包含它的，
+ * 这样记录里能回看原句，而不用只给一个文章标题。
+ */
+function resolveOrigin(word, textId, sentenceId) {
+  const tid = textId ?? currentSession()?.text_id ?? null;
+  if (!tid) return { textId: null, sentenceId: null };
+  const sid =
+    sentenceId ??
+    db
+      .prepare(`
+        SELECT s.id FROM sentence_words sw
+        JOIN sentences s ON s.id = sw.sentence_id
+        WHERE sw.word = ? AND s.text_id = ?
+        ORDER BY LENGTH(s.text) ASC
+        LIMIT 1
+      `)
+      .get(word, tid)?.id ??
+    null;
+  return { textId: tid, sentenceId: sid };
+}
+
 /** 标记一个词为生词。 */
 function markWord(word, textId, sentenceId) {
   const rec = lookupWord(word);
   const level = rec ? rec.level : 6;
   const now = new Date().toISOString();
+  const origin = resolveOrigin(word, textId, sentenceId);
 
   const existing = db.prepare('SELECT word FROM vocab WHERE word = ?').get(word);
   if (!existing) {
     db.prepare(`
       INSERT INTO vocab (word, level, status, first_text_id, first_sentence_id, created_at, due_at)
       VALUES (?, ?, 'learning', ?, ?, ?, ?)
-    `).run(word, level, textId ?? null, sentenceId ?? null, now, now);
+    `).run(word, level, origin.textId, origin.sentenceId, now, now);
   }
 
-  logActivity('mark', { word, textId, detail: { sentenceId: sentenceId ?? null } });
+  logActivity('mark', {
+    word,
+    textId: origin.textId,
+    detail: { sentenceId: origin.sentenceId },
+  });
 
   return db.prepare('SELECT * FROM vocab WHERE word = ?').get(word);
 }
@@ -192,9 +224,11 @@ function wordDetail(word, excludeTextId, levelHint) {
   const history = db
     .prepare(`
       SELECT a.id, a.at, a.kind, a.text_id, a.detail,
-             t.title, t.source, t.category, t.url
+             t.title, t.source, t.category, t.url,
+             s.text AS sentence
       FROM activity a
       LEFT JOIN texts t ON t.id = a.text_id
+      LEFT JOIN sentences s ON s.id = json_extract(a.detail, '$.sentenceId')
       WHERE a.word = ?
       ORDER BY a.at DESC, a.id DESC
       LIMIT 40
@@ -757,9 +791,11 @@ const routes = {
     const items = db
       .prepare(`
         SELECT a.id, a.at, a.kind, a.word, a.text_id, a.detail,
-               t.title, t.source, t.category
+               t.title, t.source, t.category,
+               s.text AS sentence
         FROM activity a
         LEFT JOIN texts t ON t.id = a.text_id
+        LEFT JOIN sentences s ON s.id = json_extract(a.detail, '$.sentenceId')
         ${where}
         ORDER BY a.at DESC, a.id DESC
         LIMIT ? OFFSET ?
@@ -768,6 +804,24 @@ const routes = {
       .map((r) => ({ ...r, detail: safeJson(r.detail) }));
 
     return { items, total, offset, limit };
+  },
+
+  /**
+   * 单篇正文（带分词）。
+   *
+   * 和 /api/texts/detail 分开：只有展开「查看原文」时才需要它，
+   * 平时拉详情不该背上几十 KB 的正文（当初正是为此把它们拆开的）。
+   */
+  'GET /api/texts/body': ({ query }) => {
+    const textId = Number(query.textId);
+    if (!textId) throw new Error('缺少 textId');
+    const text = attachAnalysis(textId);
+    if (!text) throw new Error('文本不存在');
+    return {
+      textId,
+      segments: text.segments,
+      boilerplateFrom: boilerplateStart(text.body),
+    };
   },
 
   'GET /api/sources': () => ({

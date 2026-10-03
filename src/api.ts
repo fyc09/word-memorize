@@ -4,8 +4,10 @@ import type {
   FetchJob,
   GradeKey,
   LearnPayload,
+  Origin,
   Paged,
   ReviewPlan,
+  Segment,
   StageCounts,
   TextDetail,
   TextListItem,
@@ -84,9 +86,9 @@ export const api = {
   word: (word: string, level?: number) =>
     req<WordDetail>(`/api/word${qs({ word, level })}`),
 
-  /** textId 可缺 —— 从词库/生词本里标记时并没有「出自哪篇」的上下文 */
-  mark: (word: string, textId?: number, sentenceId?: number) =>
-    post<{ card: VocabCard; detail: WordDetail }>('/api/learn/mark', { word, textId, sentenceId }),
+  /** origin 可缺 —— 词库/生词本里直接标记时没有「出自哪篇」，服务端会退回当前阅读会话 */
+  mark: (word: string, origin?: Origin) =>
+    post<{ card: VocabCard; detail: WordDetail }>('/api/learn/mark', { word, ...origin }),
 
   unmark: (word: string) => post<{ removed: boolean }>('/api/learn/unmark', { word }),
 
@@ -120,6 +122,15 @@ export const api = {
 
   /** 文本详情。不开阅读会话 —— 浏览不该抢掉当前正在读的那篇。 */
   textDetail: (id: number) => req<TextDetail>(`/api/texts/detail${qs({ id })}`),
+
+  /**
+   * 单篇正文（带分词）。只在展开「查看原文」时拉 ——
+   * 详情接口刻意不含正文本，避免列表页背几十 KB。
+   */
+  textBody: (id: number) =>
+    req<{ textId: number; segments: Segment[]; boilerplateFrom: number }>(
+      `/api/texts/body${qs({ textId: id })}`,
+    ),
 
   // ------------------------------------------------------------ 复习
 

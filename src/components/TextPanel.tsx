@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, PAGE } from '../api';
 import { levelVar } from '../types';
-import type { ActivityItem, Paged, TextDetail, WordRequest } from '../types';
-import { ActivityLog, fmt } from './ActivityLog';
+import type { ActivityItem, Paged, Segment, TextDetail, WordRequest } from '../types';
+import { ActivityLog, Chevron, fmt } from './ActivityLog';
 import { Pager } from './Pager';
 import { Spinner } from './Spinner';
+import { TextBody } from './TextBody';
 
 interface Props {
   textId: number;
@@ -26,6 +27,16 @@ export function TextPanel({ textId, onOpenWord, onStateChange, onGoLearn }: Prop
   const [logOffset, setLogOffset] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * 「查看原文」的折叠状态与正文。
+   *
+   * 正文按需拉取：/api/texts/detail 刻意不含它（当初为省流量把 segments
+   * 从 91.9KB 减到 533B），所以只在这一栏被展开时才去取。
+   */
+  const [bodyOpen, setBodyOpen] = useState(false);
+  const [body, setBody] = useState<{ segments: Segment[]; boilerplateFrom: number } | null>(null);
+  const [bodyLoading, setBodyLoading] = useState(false);
 
   const loadDetail = useCallback(async () => {
     try {
@@ -62,6 +73,21 @@ export function TextPanel({ textId, onOpenWord, onStateChange, onGoLearn }: Prop
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** 展开时才去拉正文（拉过一次就留着，反复启不用重拉）。 */
+  const toggleBody = async () => {
+    const next = !bodyOpen;
+    setBodyOpen(next);
+    if (!next || body) return;
+    setBodyLoading(true);
+    try {
+      setBody(await api.textBody(textId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBodyLoading(false);
     }
   };
 
@@ -133,7 +159,32 @@ export function TextPanel({ textId, onOpenWord, onStateChange, onGoLearn }: Prop
         )}
       </div>
 
-        {detail.markedWords.length > 0 && (
+      <div className="card-section">
+        <button className="fold-head" type="button" onClick={() => void toggleBody()}>
+          原文
+          <Chevron open={bodyOpen} />
+        </button>
+        <div className={`fold-body${bodyOpen ? ' in' : ''}`}>
+          <div className="fold-body-in">
+            {bodyLoading && (
+              <div className="loading">
+                <Spinner />
+              </div>
+            )}
+            {!bodyLoading && body && (
+              <TextBody
+                segments={body.segments}
+                marked={new Set(detail.markedWords.map((w) => w.word))}
+                /* 在这篇正文里点词，出处就是这篇 */
+                onWord={(word, level) => void onOpenWord({ word, level, origin: { textId } })}
+                boilerplateFrom={body.boilerplateFrom}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {detail.markedWords.length > 0 && (
           <div className="card-section">
             {/* 计数只写在这里。上方元信息行里原本还有一个「标记 N」，
                 同一个数字在同一屏出现两遍没有意义 */}

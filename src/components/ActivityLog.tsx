@@ -39,8 +39,8 @@ export function GradeTag({ detail }: { detail: ActivityDetail | null }) {
   );
 }
 
-/** 折叠箭头：指向右，展开时转 90° 指向下。 */
-function Chevron({ open }: { open: boolean }) {
+/** 折叠箭头：指向右，展开时转 90° 指向下。文本库的「查看原文」也用。 */
+export function Chevron({ open }: { open: boolean }) {
   return (
     <svg className={`chev${open ? ' is-open' : ''}`} viewBox="0 0 24 24" aria-hidden="true">
       <path
@@ -99,8 +99,8 @@ export function ActivityLog({ items, onOpenWord, showWord = true, showText = tru
             </div>
 
             {/* 折叠区：0fr → 1fr，能真正动画到内容自身的高度 */}
-            <div className={`log-open${isOpen ? ' in' : ''}`}>
-              <div className="log-open-in">
+            <div className={`fold-body${isOpen ? ' in' : ''}`}>
+              <div className="fold-body-in">
                 <LogDetail item={a} onOpenWord={onOpenWord} />
               </div>
             </div>
@@ -170,6 +170,8 @@ function LogDetail({
       {item.kind === 'unmark' && (
         <Row label="结果" value={d?.archived ? '归档（保留复习进度）' : '删除'} />
       )}
+      {/* 原句只在这里出现，不进折叠行 —— 见 styles.css 里 .log-quote 的说明 */}
+      {item.sentence && <p className="log-quote">{item.sentence}</p>}
     </div>
   );
 }

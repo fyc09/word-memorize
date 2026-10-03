@@ -1,10 +1,13 @@
 /**
  * 打开一个词。level 是它在正文里被标成的等级，用于让卡片与刚看到的颜色一致。
  *
- * 不再携带 textId：例句要排除哪一篇由服务端根据「当前阅读会话」决定，
- * 客户端不需要（也不应该）知道这个上下文。
+ * origin 是「在哪儿遇到这个词」——给得出就带上（正文点词、点例句里的词），
+ * 服务端会把它记进标记流水，记录里就能回看出处与原句。
+ * 不放进 URL：它只是这一次交互的上下文，刷新后由服务端退回当前阅读会话。
  */
-export type WordRequest = { word: string; level?: number };
+export type Origin = { textId: number; sentenceId?: number };
+
+export type WordRequest = { word: string; level?: number; origin?: Origin };
 
 /** 与后端共享的类型定义。 */
 
@@ -127,6 +130,8 @@ export interface ActivityItem {
   title?: string | null;
   source?: string | null;
   category?: string | null;
+  /** 标记这个词时遇到它的原句。只在展开详情里显示 —— 塞进折叠行会把列表压垮 */
+  sentence?: string | null;
 }
 
 /**
@@ -178,7 +183,8 @@ export interface TextDetail {
  * 没学过的词也在列表里（studied=false）：阶段为「无数据」，
  * reps / due_at 等字段为 null，界面留空。
  */
-export interface WordRow {  word: string;
+export interface WordRow {
+  word: string;
   level: number;
   phonetic: string | null;
   pos: string | null;
