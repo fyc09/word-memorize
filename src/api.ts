@@ -132,6 +132,13 @@ export const api = {
       `/api/texts/body${qs({ textId: id })}`,
     ),
 
+  /**
+   * 某一篇里已标记的词。
+   * 阅读页下方那个列表随标记实时刷新，不再是「读完」后的一次性快照。
+   */
+  markedOfText: (id: number) =>
+    req<{ rows: WordRow[] }>(`/api/texts/marked${qs({ id })}`),
+
   // ------------------------------------------------------------ 复习
 
   reviewPlan: (size = 12) => req<ReviewPlan>(`/api/review/plan${qs({ size })}`),

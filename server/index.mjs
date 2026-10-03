@@ -327,6 +327,28 @@ function toWordRow(r) {
   };
 }
 
+/**
+ * 某一篇里已标记的词，行形状与 /api/words 一致（含学习状态）。
+ *
+ * 「读完」的摘要和阅读页下方那个实时列表都用它 ——
+ * 两处必须是同一份数据、同一个形状，否则同一个词在两处长得不一样。
+ */
+function markedRowsOfText(textId) {
+  return db
+    .prepare(`
+      SELECT COALESCE(w.level, v.level) AS level,
+             v.word, w.phonetic, w.pos, w.translation, w.tags, w.frq,
+             v.reps, v.lapses, v.due_at, v.verified, v.interval_days, v.created_at
+      FROM vocab v
+      LEFT JOIN words w ON w.word = v.word
+      WHERE v.status != 'archived'
+        AND v.word IN (SELECT word FROM text_words WHERE text_id = ?)
+      ORDER BY level DESC, v.word
+    `)
+    .all(textId)
+    .map(toWordRow);
+}
+
 /** 解析 JSON 列，脏数据不抛异常。 */
 function safeJson(raw) {
   if (!raw) return null;
@@ -527,19 +549,7 @@ const routes = {
 
     // 列要和 /api/words 对齐（含学习状态），这样摘要里的词表
     // 与单词本的行完全一致，不用客户端再造一个形状。
-    const marked = db
-      .prepare(`
-        SELECT COALESCE(w.level, v.level) AS level,
-               v.word, w.phonetic, w.pos, w.translation, w.tags, w.frq,
-               v.reps, v.lapses, v.due_at, v.verified, v.interval_days, v.created_at
-        FROM vocab v
-        LEFT JOIN words w ON w.word = v.word
-        WHERE v.status != 'archived'
-          AND v.word IN (SELECT word FROM text_words WHERE text_id = ?)
-        ORDER BY level DESC, v.word
-      `)
-      .all(textId)
-      .map(toWordRow);
+    const marked = markedRowsOfText(textId);
 
     // 标记数由服务端数，不信客户端传的值 ——
     // 客户端可能因为中途刷新而少报，库里的事实才是准的。
@@ -821,6 +831,18 @@ const routes = {
       .map((r) => ({ ...r, detail: safeJson(r.detail) }));
 
     return { items, total, offset, limit };
+  },
+
+  /**
+   * 某一篇里已标记的词。
+   *
+   * 阅读页下方那个列表要随标记实时变 —— 它不再是「读完」后的一次性快照，
+   * 所以得能单独拉，而不是只能从 finish 的返回里拿。
+   */
+  'GET /api/texts/marked': ({ query }) => {
+    const textId = Number(query.id);
+    if (!textId) throw new Error('缺少 id');
+    return { rows: markedRowsOfText(textId) };
   },
 
   /**

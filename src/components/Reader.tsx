@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import type { AppState, LearnPayload, Segment, TextMeta, WordRequest, WordRow } from '../types';
 import { TextBody } from './TextBody';
@@ -21,7 +21,15 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<WordRow[] | null>(null);
+
+  /**
+   * 本篇标记的词，摊在正文下面。
+   *
+   * 不再是「读完」后的一次性快照 —— 标一个就多一行，取消就少一行，
+   * 不用先点「读完」再切一屏去看。
+   */
+  const [rows, setRows] = useState<WordRow[]>([]);
+  const rowsReq = useRef(0);
 
   /**
    * 本篇是不是「上次没读完，这次接着读」。
@@ -38,7 +46,6 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
       setLoading(true);
       setError(null);
       setNotice(null);
-      setSummary(null);
       try {
         if (mode === 'resume') {
           const { payload: existing } = await api.current();
@@ -74,16 +81,22 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const finish = useCallback(async () => {
-    if (!text) return;
-    try {
-      const res = await api.finish(text.id, payload?.session.id);
-      setSummary(res.marked);
-      void onStateChange();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+  /**
+   * 下一篇 = 把这一篇收尾 + 取新的。
+   *
+   * 收尾（写 read_done 流水、关掉会话、累加读过次数）以前是「读完」按钮的职责，
+   * 现在合进这一步 —— 用户少一次点击，记录不会因此少一条。
+   */
+  const nextText = useCallback(async () => {
+    if (text) {
+      try {
+        await api.finish(text.id, payload?.session.id);
+      } catch {
+        /* 收尾失败不该挡住往下读 */
+      }
     }
-  }, [text, payload, onStateChange]);
+    await load('next');
+  }, [text, payload, load]);
 
   /**
    * 点正文里的词 → 打开词卡。标记靠词卡里的按钮，不再「点击即标记」。
@@ -96,6 +109,26 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
     },
     [text, onOpenWord],
   );
+
+  /**
+   * 标记一变就重新拉一次本篇的标记词。
+   *
+   * marked 是 App 托管的 Set，标记/取消都会换掉它 —— 拿它当依赖即可，
+   * 不需要另外的失效通知。
+   */
+  useEffect(() => {
+    if (!text) return;
+    const id = ++rowsReq.current;
+    void api
+      .markedOfText(text.id)
+      .then((r) => {
+        // 连点或切文章时只认最后一次
+        if (rowsReq.current === id) setRows(r.rows);
+      })
+      .catch(() => {
+        /* 列表拉不到不影响阅读 */
+      });
+  }, [text, marked]);
 
   return (
     <div className="reader-wrap">
@@ -160,24 +193,12 @@ export function Reader({ state, marked, onMarkedWords, onStateChange, onOpenWord
               boilerplateFrom={text.boilerplateFrom}
             />
 
-            {summary === null ? (
-              <div className="toolbar toolbar-end">
-                <button className="btn primary" type="button" onClick={() => void finish()}>
-                  读完
-                </button>
-                {/* 不写「N 个生词」—— 顶上那一栏已经用了「生词」表示
-                    「超出你水平的词」，同一个词两个含义会很混 */}
-                <span className="muted">已标记 {marked.size}</span>
-              </div>
-            ) : (
-              /* 摘要接在正文**下面**，不替掉正文 —— 刚读完正要回头对照，
-                 文章留着才看得出这些词的语境 */
-              <MarkedSummary
-                rows={summary}
-                onOpenWord={onOpenWord}
-                onNext={() => void load('next')}
-              />
-            )}
+            {/*
+              标记的词就摊在正文下面，随标记实时变 ——
+              不必先点「读完」切一屏、再回头对照。
+              「下一篇」直接可点，它负责把这一篇收尾（记进流水、关掉会话）再取新的。
+            */}
+            <MarkedSummary rows={rows} onOpenWord={onOpenWord} onNext={() => void nextText()} />
           </>
         )}
       </div>
