@@ -1103,12 +1103,22 @@ input[type="checkbox"]:checked::after {
   text-underline-offset: 3px;
 }
 
-.log-text {
-  max-width: 190px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--mut);
+/*
+ * 「出自」是通向那一篇的入口，做成可点的。
+ * 但它在一排字段里仍然是一个值，所以不换成按钮样式，
+ * 只给一条淡下划线 —— "可以点"不必喊出来。
+ */
+.log-src {
+  font-family: var(--font-serif);
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--fast) var(--ease);
+}
+
+.log-src:hover {
+  text-decoration-color: var(--accent);
 }
 
 /*

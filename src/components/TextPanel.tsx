@@ -10,6 +10,8 @@ import { TextBody } from './TextBody';
 interface Props {
   textId: number;
   onOpenWord: (r: WordRequest) => void | Promise<void>;
+  /** 点记录里的「出自」→ 打开那一篇 */
+  onOpenText: (textId: number) => void | Promise<void>;
   onStateChange: () => void | Promise<void>;
   /** 设为当前阅读后跳到阅读页 */
   onGoLearn: () => void;
@@ -21,7 +23,7 @@ const STATUS_LABEL: Record<string, string> = {
   dropped: '搁置',
 };
 
-export function TextPanel({ textId, onOpenWord, onStateChange, onGoLearn }: Props) {
+export function TextPanel({ textId, onOpenWord, onOpenText, onStateChange, onGoLearn }: Props) {
   const [detail, setDetail] = useState<TextDetail | null>(null);
   const [log, setLog] = useState<Paged<ActivityItem> | null>(null);
   const [logOffset, setLogOffset] = useState(0);
@@ -206,7 +208,7 @@ export function TextPanel({ textId, onOpenWord, onStateChange, onGoLearn }: Prop
 
       <div className="card-section">
         <h3>记录 ({log?.total ?? 0})</h3>
-        <ActivityLog items={log?.items ?? []} onOpenWord={onOpenWord} showText={false} />
+        <ActivityLog items={log?.items ?? []} onOpenWord={onOpenWord} onOpenText={onOpenText} />
         {log && (
           <Pager total={log.total} offset={log.offset} limit={log.limit} onChange={setLogOffset} />
         )}

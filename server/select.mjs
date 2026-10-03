@@ -112,6 +112,22 @@ export function attachAnalysis(textId) {
 
 /** 挖空占位符（\u2007 是不换行空格，防止渲染时空格被吃掉）。 */
 const BLANK_MARK = '\u2007______\u2007';
+
+/**
+ * 把一个句子分词，供前端渲染成可交互的句子。
+ *
+ * 例句和记录里的原句共用 —— 两处必须是同一套渲染（按难度着色、可点查词），
+ * 各造一份迟早会漂。
+ * 「生词本里有没有这个词」不在这里算，交给调用方：
+ * 例句是整张卡取一次，原句是每句各自取。
+ */
+export function annotateSentence(text) {
+  const segments = analyzeText(text, dict).segments;
+  const words = segments
+    .filter((s) => s.kind === 'word')
+    .map((s) => s.word ?? s.text.toLowerCase());
+  return { segments, words };
+}
 /** 同根词最多再遮几个，避免一句话被挖得读不下去。 */
 const MAX_STEM_BLANKS = 2;
 

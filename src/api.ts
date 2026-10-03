@@ -139,6 +139,8 @@ export const api = {
   grade: (args: {
     word: string;
     textId?: number;
+    /** 当时考的是哪一句。记进流水，记录里才能回看原句 */
+    sentenceId?: number;
     grade: GradeKey;
     typed?: string;
     usedHint?: boolean;
@@ -157,6 +159,15 @@ export const api = {
         offset: opts.offset ?? 0,
         limit: opts.limit ?? PAGE,
       })}`,
+    ),
+
+  /**
+   * 一条记录里原句的分词。只在展开那条记录时才拉 ——
+   * 一句分词的 JSON 约 2.6KB，25 条就是 65KB，而列表现才 1.4KB。
+   */
+  sentence: (sentenceId: number) =>
+    req<{ segments: Segment[]; markedWords: string[] }>(
+      `/api/activity/sentence${qs({ id: sentenceId })}`,
     ),
 
   fetchStart: (want = 12) =>

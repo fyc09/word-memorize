@@ -13,6 +13,7 @@ import { LEVELS } from './level.mjs';
 import { compoundLevel } from './tokenize.mjs';
 import { GRADES, schedule, stageOf, STAGES } from './srs.mjs';
 import {
+  annotateSentence,
   attachAnalysis,
   exampleSentences,
   pickLearnText,
@@ -218,12 +219,26 @@ function markedAmong(words) {
     .map((r) => r.word);
 }
 
+/**
+ * 一条记录里那句原句的可交互版本。
+ *
+ * 不在记录列表里就带回来：一句分词的 JSON 约 2.6KB，25 条就是 65KB，
+ * 而列表现在只有 1.4KB —— 词卡每次查词都要拉历史，不能这么涨。
+ * 所以只在记录被展开时才按需要这一句。
+ */
+function sentenceDetail(sentenceId) {
+  const row = db.prepare('SELECT text FROM sentences WHERE id = ?').get(sentenceId);
+  if (!row) return { segments: [], markedWords: [] };
+  const { segments, words } = annotateSentence(row.text);
+  return { segments, markedWords: markedAmong(words) };
+}
+
 function wordDetail(word, excludeTextId, levelHint) {
   const rec = lookupWord(word);
   const card = db.prepare('SELECT * FROM vocab WHERE word = ?').get(word) || null;
   const history = db
     .prepare(`
-      SELECT a.id, a.at, a.kind, a.text_id, a.detail,
+      SELECT a.id, a.at, a.kind, a.word, a.text_id, a.detail,
              t.title, t.source, t.category, t.url,
              s.text AS sentence
       FROM activity a
@@ -579,6 +594,8 @@ const routes = {
         typed: body.typed ? String(body.typed).slice(0, 100) : null,
         // 有没有看过提示：影响这次「想起来了」的含金量，展开记录时要看得到
         usedHint: Boolean(body.usedHint),
+        // 当时考的是哪一句。客户端手里有（刚出过这道题），记下来记录里才能回看
+        sentenceId: body.sentenceId ? Number(body.sentenceId) : null,
         prev,
         next: next.interval_days,
       },
@@ -822,6 +839,13 @@ const routes = {
       segments: text.segments,
       boilerplateFrom: boilerplateStart(text.body),
     };
+  },
+
+  /** 一条记录里原句的分词（展开那条记录时才拉） */
+  'GET /api/activity/sentence': ({ query }) => {
+    const sentenceId = Number(query.id);
+    if (!sentenceId) throw new Error('缺少 id');
+    return sentenceDetail(sentenceId);
   },
 
   'GET /api/sources': () => ({

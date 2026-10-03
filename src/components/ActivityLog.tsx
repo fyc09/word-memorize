@@ -9,8 +9,10 @@
  * 不需要预先知道有多高）。
  */
 
-import { useState } from 'react';
-import type { ActivityDetail, ActivityItem, WordRequest } from '../types';
+import { useEffect, useState } from 'react';
+import { api } from '../api';
+import type { ActivityDetail, ActivityItem, Segment, WordRequest } from '../types';
+import { WordSpans } from './TextBody';
 
 export const KIND_LABEL: Record<string, string> = {
   read_start: '开始阅读',
@@ -29,14 +31,16 @@ const GRADE_LABEL: Record<string, string> = {
   reading_fail: '阅读不认识',
 };
 
+/**
+ * 评分。
+ *
+ * 和「复习」「标记」用同一档文字（.log-kind），不做成药丸 ——
+ * 一行里塞一个彩色胶囊，时间和类型反而被挤成了陪衬。
+ */
 export function GradeTag({ detail }: { detail: ActivityDetail | null }) {
   const grade = detail?.grade;
   if (typeof grade !== 'string') return null;
-  return (
-    <span className={`pill ${grade.includes('good') ? 'done' : ''}`}>
-      {GRADE_LABEL[grade] ?? grade}
-    </span>
-  );
+  return <span className="log-kind">{GRADE_LABEL[grade] ?? grade}</span>;
 }
 
 /** 折叠箭头：指向右，展开时转 90° 指向下。文本库的「查看原文」也用。 */
@@ -58,13 +62,13 @@ export function Chevron({ open }: { open: boolean }) {
 interface Props {
   items: ActivityItem[];
   onOpenWord?: (r: WordRequest) => void | Promise<void>;
+  /** 点「出自」时打开那一篇的详情 */
+  onOpenText?: (textId: number) => void | Promise<void>;
   /** 词卡里标题已经写明是哪个词，不必再重复 */
   showWord?: boolean;
-  /** 文本库里标题已知，不必再重复 */
-  showText?: boolean;
 }
 
-export function ActivityLog({ items, onOpenWord, showWord = true, showText = true }: Props) {
+export function ActivityLog({ items, onOpenWord, onOpenText, showWord = true }: Props) {
   const [open, setOpen] = useState<number | null>(null);
 
   if (items.length === 0) return <p className="log-empty">暂无记录</p>;
@@ -84,7 +88,9 @@ export function ActivityLog({ items, onOpenWord, showWord = true, showText = tru
               {showWord && a.word && (
                 <button
                   className="log-word"
+                  type="button"
                   onClick={(e) => {
+                    // 别让点击冒泡到整行 —— 那是展开/收起
                     e.stopPropagation();
                     const w = a.word;
                     if (w) void onOpenWord?.({ word: w });
@@ -93,7 +99,6 @@ export function ActivityLog({ items, onOpenWord, showWord = true, showText = tru
                   {a.word}
                 </button>
               )}
-              {showText && a.title && <span className="log-text">{a.title.slice(0, 40)}</span>}
               {a.kind === 'review' && <GradeTag detail={a.detail} />}
               <Chevron open={isOpen} />
             </div>
@@ -101,7 +106,12 @@ export function ActivityLog({ items, onOpenWord, showWord = true, showText = tru
             {/* 折叠区：0fr → 1fr，能真正动画到内容自身的高度 */}
             <div className={`fold-body${isOpen ? ' in' : ''}`}>
               <div className="fold-body-in">
-                <LogDetail item={a} onOpenWord={onOpenWord} />
+                <LogDetail
+                  item={a}
+                  open={isOpen}
+                  onOpenWord={onOpenWord}
+                  onOpenText={onOpenText}
+                />
               </div>
             </div>
           </li>
@@ -114,10 +124,14 @@ export function ActivityLog({ items, onOpenWord, showWord = true, showText = tru
 /** 一条记录的展开详情，按 kind 决定展示什么。 */
 function LogDetail({
   item,
+  open,
   onOpenWord,
+  onOpenText,
 }: {
   item: ActivityItem;
+  open: boolean;
   onOpenWord?: (r: WordRequest) => void | Promise<void>;
+  onOpenText?: (textId: number) => void | Promise<void>;
 }) {
   const d = item.detail;
 
@@ -132,6 +146,16 @@ function LogDetail({
         {d?.prev !== undefined && d?.next !== undefined && (
           <Row label="间隔" value={`${d.prev} 天 → ${d.next} 天`} />
         )}
+        {/* 复习和标记一样要有「出自」—— 同一个字段在所有记录里都得在同一个位置上 */}
+        <Row
+          label="出自"
+          value={item.title ?? '（无关联文本）'}
+          onClick={
+            item.text_id && item.title ? () => void onOpenText?.(item.text_id as number) : undefined
+          }
+          title={item.title}
+        />
+        <Quote item={item} open={open} onOpenWord={onOpenWord} />
       </div>
     );
   }
@@ -144,12 +168,18 @@ function LogDetail({
         {words.length > 0 && (
           <div className="taglist">
             {words.map((w) => (
-              <button key={w} className="tagword" onClick={() => void onOpenWord?.({ word: w })}>
+              <button
+                key={w}
+                className="tagword"
+                type="button"
+                onClick={() => void onOpenWord?.({ word: w })}
+              >
                 {w}
               </button>
             ))}
           </div>
         )}
+        <Quote item={item} open={open} onOpenWord={onOpenWord} />
       </div>
     );
   }
@@ -166,21 +196,118 @@ function LogDetail({
 
   return (
     <div className="log-detail">
-      <Row label="出自" value={item.title ?? '（无关联文本）'} />
+      <Row
+        label="出自"
+        value={item.title ?? '（无关联文本）'}
+        onClick={item.text_id && item.title ? () => void onOpenText?.(item.text_id as number) : undefined}
+        title={item.title}
+      />
       {item.kind === 'unmark' && (
         <Row label="结果" value={d?.archived ? '归档（保留复习进度）' : '删除'} />
       )}
-      {/* 原句只在这里出现，不进折叠行 —— 见 styles.css 里 .log-quote 的说明 */}
-      {item.sentence && <p className="log-quote">{item.sentence}</p>}
+      <Quote item={item} open={open} onOpenWord={onOpenWord} />
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+/**
+ * 原句（若有）。
+ *
+ * 只在展开时挂载：分词是按需拉的，一直挂着会给每条记录都发一次请求。
+ */
+function Quote({
+  item,
+  open,
+  onOpenWord,
+}: {
+  item: ActivityItem;
+  open: boolean;
+  onOpenWord?: (r: WordRequest) => void | Promise<void>;
+}) {
+  if (!open) return null;
+  const sentenceId = item.detail?.sentenceId;
+  if (!sentenceId || !item.sentence) return null;
+  return (
+    <SentenceQuote
+      sentenceId={sentenceId}
+      fallback={item.sentence}
+      focus={item.word}
+      onOpenWord={onOpenWord}
+    />
+  );
+}
+
+/**
+ * 记录里那句原句。
+ *
+ * 用和例句完全相同的组件（WordSpans）—— 按难度着色、每个词可点、目标词高亮。
+ *
+ * 分词是展开时才拉的：一句的 JSON 约 2.6KB，25 条就是 65KB，
+ * 而记录列表本身只有 1.4KB。拉到之前先显示纯文本，避免空一下再跳出内容。
+ */
+function SentenceQuote({
+  sentenceId,
+  fallback,
+  focus,
+  onOpenWord,
+}: {
+  sentenceId: number;
+  fallback: string;
+  focus: string | null;
+  onOpenWord?: (r: WordRequest) => void | Promise<void>;
+}) {
+  const [data, setData] = useState<{ segments: Segment[]; markedWords: string[] } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .sentence(sentenceId)
+      .then((d) => {
+        if (alive) setData(d);
+      })
+      .catch(() => {
+        /* 拉不到就继续用纯文本，不必为此打扰用户 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [sentenceId]);
+
+  if (!data) return <p className="log-quote">{fallback}</p>;
+
+  return (
+    <p className="log-quote">
+      <WordSpans
+        segments={data.segments}
+        marked={new Set(data.markedWords)}
+        focus={focus}
+        onWord={(word, level) => void onOpenWord?.({ word, level })}
+      />
+    </p>
+  );
+}
+
+function Row({
+  label,
+  value,
+  onClick,
+  title,
+}: {
+  label: string;
+  value: string;
+  onClick?: () => void;
+  title?: string | null;
+}) {
   return (
     <div className="log-detail-row">
       <span className="log-detail-label">{label}</span>
-      <span className="log-detail-value">{value}</span>
+      {onClick ? (
+        <button className="log-src" type="button" onClick={onClick} title={title ?? undefined}>
+          {value}
+        </button>
+      ) : (
+        <span className="log-detail-value">{value}</span>
+      )}
     </div>
   );
 }

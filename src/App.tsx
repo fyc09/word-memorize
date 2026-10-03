@@ -114,6 +114,20 @@ export function App() {
     openPeek({ kind: 'text', id });
   }, []);
 
+  /**
+   * 面板里点「出自」→ 压一层看那一篇。
+   * 已经在这一篇里（在文本库详情页里点自己）就什么也不做，
+   * 否则会白白堆一层一模一样的面板。
+   */
+  const openTextFromPanel = useCallback(
+    (id: number) => {
+      const cur = route.peek;
+      if (cur?.kind === 'text' && cur.id === id) return;
+      drillPeek({ kind: 'text', id }, cur ? peekLabel(cur) : undefined);
+    },
+    [route.peek],
+  );
+
   // 面板里点击 = 压一层，并记下上一层叫什么（返回按钮的文案靠它）
   const openWordFromPanel = useCallback(
     (r: WordRequest) => {
@@ -231,6 +245,7 @@ export function App() {
             <TextPanel
               textId={route.peek.id}
               onOpenWord={openWordFromPanel}
+              onOpenText={openTextFromPanel}
               onStateChange={reload}
               onGoLearn={() => goTab('learn')}
             />
@@ -240,6 +255,7 @@ export function App() {
               loading={word.loading}
               marked={word.marked}
               onOpenWord={openWordFromPanel}
+              onOpenText={openTextFromPanel}
               onMark={() => void word.toggleMark()}
               onUnmark={() => void word.toggleMark()}
             />

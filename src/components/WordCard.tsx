@@ -25,9 +25,11 @@ interface Props {
   onUnmark: () => void;
   /** 点例句里的词 → 查它。不传就不可点。 */
   onOpenWord?: (r: WordRequest) => void;
+  /** 点记录里的「出自」→ 打开那一篇 */
+  onOpenText?: (textId: number) => void;
 }
 
-export function WordCard({ detail, loading, marked, onMark, onUnmark, onOpenWord }: Props) {
+export function WordCard({ detail, loading, marked, onMark, onUnmark, onOpenWord, onOpenText }: Props) {
   if (loading) {
     return (
       <div className="loading">
@@ -172,7 +174,7 @@ export function WordCard({ detail, loading, marked, onMark, onUnmark, onOpenWord
       {detail.history.length > 0 && (
         <div className="card-section">
           <h3>记录 ({detail.history.length})</h3>
-          <ActivityLog items={detail.history} showWord={false} />
+          <ActivityLog items={detail.history} showWord={false} onOpenWord={onOpenWord} onOpenText={onOpenText} />
         </div>
       )}
 

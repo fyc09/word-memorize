@@ -86,7 +86,14 @@ export function ReviewSession({ state, onStateChange }: Props) {
       setLoading(true);
       setCardLoading(true);
       api
-        .grade({ word: item.word, textId: item.textId, grade, typed, usedHint })
+        .grade({
+          word: item.word,
+          textId: item.textId,
+          sentenceId: item.sentenceId,
+          grade,
+          typed,
+          usedHint,
+        })
         .then(async () => {
           setCardDetail(await api.word(item.word, item.level));
           setPhase('card');
