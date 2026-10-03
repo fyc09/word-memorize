@@ -1503,21 +1503,7 @@ input[type="checkbox"]:checked::after {
   text-align: center;
 }
 
-/* ---------------------------------------------------------------- 提示 */
-
-.notice {
-  padding: 11px 14px;
-  margin-top: 14px;
-  border-radius: var(--r);
-  background: var(--soft);
-  color: var(--mut);
-  font-size: 12.5px;
-}
-
-.notice.warn {
-  background: #2a2317;
-  color: var(--warn);
-}
+/* ---------------------------------------------------------------- 错误 */
 
 .error {
   display: flex;

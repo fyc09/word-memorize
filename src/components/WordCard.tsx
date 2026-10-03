@@ -161,9 +161,6 @@ export function WordCard({ detail, loading, marked, onMark, onUnmark, onOpenWord
               {detail.card.lapses}
             </span>
           </div>
-          {detail.card.verified === 0 && detail.card.reps > 0 && (
-            <div className="notice warn mt-10">待验证</div>
-          )}
         </div>
       )}
 
