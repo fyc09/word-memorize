@@ -8,6 +8,24 @@
 
 ---
 
+## 界面
+
+阅读：难度用颜色标出（左下角可整体关掉），已标记的词带下划线。点任意词看释义 —— 以及它在**其它真实文章**里的用法。
+
+![阅读](docs/screenshots/01-reading.png)
+
+| 点词：释义 + 其它文章里的用例 | 复习：把词挖空，靠上下文默写 |
+| --- | --- |
+| ![单词卡](docs/screenshots/02-word-card.png) | ![复习](docs/screenshots/03-review.png) |
+| 单词：词库与生词本**是同一个列表** | 文本库：可折叠查看原文 |
+| ![单词](docs/screenshots/04-words.png) | ![文本库](docs/screenshots/05-texts.png) |
+| 手机：换成底部标签栏 | |
+| ![手机端](docs/screenshots/06-mobile.png) | |
+
+*截图用 `npm run seed:demo` 造的演示数据生成（`scripts/seed-demo.mjs`），只写 vocab / read_texts / activity 三张表。*
+
+---
+
 ## 快速开始
 
 ```bash
@@ -36,6 +54,7 @@ npm run dev
 | --- | --- |
 | `npm run build:db` | 解析 ECDICT 与变形词表，重建 `data/app.db`（含不可跳过的变形表自检） |
 | `npm run seed` | 预抓语料。`--per=40` 控制每个题材的篇数，`--fresh` 先清空，`--cat=science` 只抓一类 |
+| `npm run seed:demo` | 造一份演示数据（四种复习阶段、两周的阅读与复习流水），用于生成 README 截图 |
 | `npm run reprocess` | **改了分级/分词/清洗规则后**，用库里已有正文重算索引。加 `--refetch` 会先回源重取正文 |
 | `npm run reset` | 清空学习数据、保留语料。加 `--corpus` 连语料一起清 |
 | `npm run typecheck` | 前端类型检查 |

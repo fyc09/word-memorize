@@ -8,6 +8,7 @@
   "scripts": {
     "build:db": "node scripts/build-db.mjs",
     "seed": "node scripts/seed.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs",
     "reprocess": "node scripts/reprocess.mjs",
     "reset": "node scripts/reset-user-data.mjs",
     "dev:api": "node --watch server/index.mjs",
