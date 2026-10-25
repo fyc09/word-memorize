@@ -1611,6 +1611,24 @@ input[type="checkbox"]:checked::after {
 
 /* ---------------------------------------------------------------- 表单 */
 
+/*
+ * 时间输入框：复用 .search 的外观（胶囊、描边、软底），只压窄一点 ——
+ * 里面永远只有 HH:MM 五个字符。
+ */
+.time-input {
+  flex: none;
+  width: 124px;
+}
+
+/*
+ * 原生时间选择器的图标在深色底上是深色的，看不见 —— 反色一下。
+ * 这个伪元素只有 WebKit/Blink 支持，其他引擎不认也不会报错。
+ */
+.time-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.72);
+  cursor: pointer;
+}
+
 .search {
   flex: 1;
   min-width: 160px;

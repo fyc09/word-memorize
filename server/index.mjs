@@ -141,14 +141,23 @@ function currentShowLevels() {
 
 /** 定时抓取与提醒的设置。 */
 function currentNotify() {
-  const hourRaw = String(getSetting('fetchHour', ''));
+  /*
+   * 抓取时刻：优先 fetchTime（"HH:MM"，可任意）；
+   * 旧数据只有 fetchHour（整点数字），这里统一折算成 "HH:00"。
+   */
+  const rawTime = String(getSetting('fetchTime', ''));
+  const rawHour = String(getSetting('fetchHour', ''));
+  const fetchTime =
+    rawTime || (rawHour === '' ? '' : `${String(Number(rawHour)).padStart(2, '0')}:00`);
+
   return {
-    fetchHour: hourRaw === '' ? null : Number(hourRaw),
+    fetchTime: fetchTime || null,
     remindEnabled: getSetting('remindEnabled', '0') === '1',
     times: String(getSetting('remindTimes', ''))
       .split(',')
       .map((s) => s.trim())
-      .filter(Boolean),
+      .filter(Boolean)
+      .sort(),
     subscriptions: listSubscriptions().length,
   };
 }
@@ -450,14 +459,17 @@ const routes = {
     if (body.showLevels !== undefined) {
       setSetting('showLevels', body.showLevels ? '1' : '0');
     }
-    if (body.fetchHour !== undefined) {
-      // 空字符串 = 关闭定时抓取
-      const raw = String(body.fetchHour).trim();
-      if (raw === '') setSetting('fetchHour', '');
-      else {
-        const h = Number(raw);
-        if (!Number.isInteger(h) || h < 0 || h > 23) throw new Error('抓取时刻必须是 0–23');
-        setSetting('fetchHour', String(h));
+    if (body.fetchTime !== undefined) {
+      // 空字符串 = 关闭定时抓取；否则接受任意 HH:MM
+      const raw = String(body.fetchTime).trim();
+      if (raw === '') {
+        setSetting('fetchTime', '');
+        setSetting('fetchHour', '');
+      } else {
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) throw new Error('抓取时刻格式应为 HH:MM');
+        setSetting('fetchTime', raw);
+        // 旧键清掉，避免两处并存时读哪份都说不清
+        setSetting('fetchHour', '');
       }
     }
     if (body.remindEnabled !== undefined) {

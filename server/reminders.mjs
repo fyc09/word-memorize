@@ -83,6 +83,14 @@ export async function pushAll(payload, vapid) {
 
 // ---------------------------------------------------------------- 定时
 
+/** 定时抓取的时刻（"HH:MM"）；空字符串表示关闭。兼容旧的 fetchHour。 */
+function fetchAt() {
+  const t = String(getSetting('fetchTime', ''));
+  if (t) return t;
+  const h = String(getSetting('fetchHour', ''));
+  return h === '' ? '' : `${String(Number(h)).padStart(2, '0')}:00`;
+}
+
 /**
  * 每秒检查一次的那件事：到点了吗、做过了吗。
  *
@@ -90,11 +98,11 @@ export async function pushAll(payload, vapid) {
  * 所以重启不会重复执行，跨天也能自然续上。
  */
 async function tick(now = new Date()) {
-  // ---- 每天定时抓取
-  const fetchHour = Number(getSetting('fetchHour', ''));
-  if (Number.isInteger(fetchHour) && fetchHour >= 0 && fetchHour <= 23) {
+  // ---- 每天定时抓取（过了点也算：当天错过一次就补上，不必等到明天）
+  const at = fetchAt();
+  if (at) {
     const day = today(now);
-    if (now.getHours() >= fetchHour && getSetting('lastFetchDay', '') !== day) {
+    if (hhmm(now) >= at && getSetting('lastFetchDay', '') !== day) {
       if (!runningJob('fetch')) {
         setSetting('lastFetchDay', day); // 先记，避免抓取失败时每分钟重试
         try {

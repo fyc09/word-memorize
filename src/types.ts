@@ -254,8 +254,8 @@ export interface AppState {
   corpus: { texts: number; readTexts: number; reading: number; unread: number };
   /** 定时抓取与提醒 */
   notify: {
-    /** 每天定时抓取的整点，null = 关闭 */
-    fetchHour: number | null;
+    /** 每天定时抓取的时刻 "HH:MM"，null = 关闭 */
+    fetchTime: string | null;
     remindEnabled: boolean;
     /** "HH:MM" 列表 */
     times: string[];

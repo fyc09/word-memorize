@@ -10,9 +10,6 @@ interface Props {
   onLogout: () => Promise<void>;
 }
 
-const PRESET_HOURS = [6, 7, 8, 9, 12, 18, 20, 22];
-const PRESET_TIMES = ['08:00', '12:00', '18:00', '20:00', '22:00'];
-
 /** VAPID 公钥是 base64url，subscribe 要的是 Uint8Array。 */
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4))
@@ -25,6 +22,8 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 export function SettingsPanel({ state, onStateChange, username, onLogout }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 提醒时间的临时输入（加进列表前不落库） */
+  const [draft, setDraft] = useState('');
 
   const logout = async () => {
     setBusy(true);
@@ -86,12 +85,12 @@ export function SettingsPanel({ state, onStateChange, username, onLogout }: Prop
     }
   };
 
-  /** 定时抓取的时间。null 表示关闭。 */
-  const setFetchHour = async (hour: number | null) => {
+  /** 定时抓取的时刻。空字符串表示关闭。 */
+  const setFetchTime = async (time: string) => {
     setBusy(true);
     setError(null);
     try {
-      await api.setSettings({ fetchHour: hour === null ? '' : hour });
+      await api.setSettings({ fetchTime: time });
       await onStateChange();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -113,20 +112,24 @@ export function SettingsPanel({ state, onStateChange, username, onLogout }: Prop
     }
   };
 
-  const toggleTime = async (t: string) => {
-    const set = new Set(state.notify.times);
-    if (set.has(t)) set.delete(t);
-    else set.add(t);
+  /** 增减一个提醒时刻。时间列表排序后存，展示顺序就稳定。 */
+  const setTimes = async (next: string[]) => {
     setBusy(true);
     setError(null);
     try {
-      await api.setSettings({ remindTimes: [...set].sort() });
+      await api.setSettings({ remindTimes: [...new Set(next)].sort() });
       await onStateChange();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
+  };
+
+  const addTime = async () => {
+    if (!draft) return;
+    await setTimes([...state.notify.times, draft]);
+    setDraft('');
   };
 
   /**
@@ -274,24 +277,21 @@ export function SettingsPanel({ state, onStateChange, username, onLogout }: Prop
         <div className="section">
           <h2 className="section-title">定时与提醒</h2>
 
-          <div className="chips chips-wrap">
-            <button
-              className={`chip${state.notify.fetchHour === null ? ' on' : ''}`}
+          {/* 抓取时刻：任意 HH:MM，不是只能选整点 */}
+          <div className="btn-row">
+            <input
+              type="time"
+              className="search time-input"
+              value={state.notify.fetchTime ?? ''}
               disabled={busy}
-              onClick={() => void setFetchHour(null)}
-            >
-              不定时抓取
-            </button>
-            {PRESET_HOURS.map((h) => (
-              <button
-                key={h}
-                className={`chip${state.notify.fetchHour === h ? ' on' : ''}`}
-                disabled={busy}
-                onClick={() => void setFetchHour(h)}
-              >
-                每天 {String(h).padStart(2, '0')}:00 抓取
+              onChange={(e) => void setFetchTime(e.target.value)}
+            />
+            <span className="muted">每天这个时刻抓取新文章</span>
+            {state.notify.fetchTime && (
+              <button className="btn" disabled={busy} onClick={() => void setFetchTime('')}>
+                关闭
               </button>
-            ))}
+            )}
           </div>
 
           <label className="toggle nav-switch mt-10">
@@ -307,18 +307,44 @@ export function SettingsPanel({ state, onStateChange, username, onLogout }: Prop
           </label>
 
           {state.notify.remindEnabled && (
-            <div className="chips chips-wrap mt-10">
-              {PRESET_TIMES.map((t) => (
-                <button
-                  key={t}
-                  className={`chip${state.notify.times.includes(t) ? ' on' : ''}`}
+            <>
+              <div className="btn-row mt-10">
+                <input
+                  type="time"
+                  className="search time-input"
+                  value={draft}
                   disabled={busy}
-                  onClick={() => void toggleTime(t)}
-                >
-                  {t}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void addTime();
+                    }
+                  }}
+                />
+                <button className="btn" disabled={busy || !draft} onClick={() => void addTime()}>
+                  添加
                 </button>
-              ))}
-            </div>
+              </div>
+
+              {state.notify.times.length === 0 ? (
+                <p className="desc">还没有提醒时刻</p>
+              ) : (
+                <div className="chips chips-wrap">
+                  {state.notify.times.map((t) => (
+                    <button
+                      key={t}
+                      className="chip on"
+                      disabled={busy}
+                      title="点一下删除"
+                      onClick={() => void setTimes(state.notify.times.filter((x) => x !== t))}
+                    >
+                      {t} ×
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           <div className="btn-row">

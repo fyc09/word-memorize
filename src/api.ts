@@ -86,8 +86,8 @@ export const api = {
     level?: number;
     categories?: string[];
     showLevels?: boolean;
-    /** 定时抓取的整点；null/'' 表示关闭 */
-    fetchHour?: number | '';
+    /** 定时抓取的时刻 "HH:MM"；'' 表示关闭 */
+    fetchTime?: string;
     remindEnabled?: boolean;
     /** "HH:MM" 列表 */
     remindTimes?: string[];
