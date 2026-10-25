@@ -150,6 +150,19 @@ CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+/*
+ * 浏览器的 push 订阅。
+ * endpoint 就是唯一标识 —— 同一个浏览器重复订阅时 endpoint 不变，
+ * 换密钥或清数据才会换，所以用它在主键上做 UPSERT。
+ */
+CREATE TABLE IF NOT EXISTS push_subs (
+  endpoint   TEXT PRIMARY KEY,
+  p256dh     TEXT NOT NULL,
+  auth       TEXT NOT NULL,
+  ua         TEXT,
+  created_at TEXT NOT NULL
+);
 `;
 
 /** 第三步：建索引。必须等 migrate() 补完列之后再跑。 */

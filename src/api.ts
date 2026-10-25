@@ -82,8 +82,38 @@ export const PAGE = 25;
 export const api = {
   state: () => req<AppState>('/api/state'),
 
-  setSettings: (patch: { level?: number; categories?: string[]; showLevels?: boolean }) =>
-    post<{ level: number; categories: string[]; showLevels: boolean }>('/api/settings', patch),
+  setSettings: (patch: {
+    level?: number;
+    categories?: string[];
+    showLevels?: boolean;
+    /** 定时抓取的整点；null/'' 表示关闭 */
+    fetchHour?: number | '';
+    remindEnabled?: boolean;
+    /** "HH:MM" 列表 */
+    remindTimes?: string[];
+  }) =>
+    post<{ level: number; categories: string[]; showLevels: boolean; notify: AppState['notify'] }>(
+      '/api/settings',
+      patch,
+    ),
+
+  // ------------------------------------------------------------ 推送通知
+
+  /** VAPID 公钥，浏览器 subscribe 时要用 */
+  pushKey: () => req<{ publicKey: string }>('/api/push/key'),
+
+  pushSubscribe: (sub: PushSubscriptionJSON) =>
+    post<{ ok: boolean; subscriptions: number }>('/api/push/subscribe', sub),
+
+  pushUnsubscribe: (endpoint: string) =>
+    post<{ ok: boolean; subscriptions: number }>('/api/push/unsubscribe', { endpoint }),
+
+  pushTest: () =>
+    post<{
+      sent: number;
+      subscriptions: number;
+      results: { ok: boolean; status: number; error: string | null }[];
+    }>('/api/push/test', {}),
 
   // ------------------------------------------------------------ 阅读
 

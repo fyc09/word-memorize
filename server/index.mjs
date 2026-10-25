@@ -29,6 +29,14 @@ import {
   textLibraryCount,
 } from './session.mjs';
 import { latestJob, runningJob, reapStaleJobs, startFetchJob } from './jobs.mjs';
+import { ensureVapid } from './push.mjs';
+import {
+  startScheduler,
+  saveSubscription,
+  removeSubscription,
+  listSubscriptions,
+  pushAll,
+} from './reminders.mjs';
 import { boilerplateStart } from './extract.mjs';
 import { CATEGORIES, FEEDS } from './feeds.mjs';
 import { ensurePool } from './ingest.mjs';
@@ -129,6 +137,20 @@ function currentCategories() {
  */
 function currentShowLevels() {
   return getSetting('showLevels', '1') !== '0';
+}
+
+/** 定时抓取与提醒的设置。 */
+function currentNotify() {
+  const hourRaw = String(getSetting('fetchHour', ''));
+  return {
+    fetchHour: hourRaw === '' ? null : Number(hourRaw),
+    remindEnabled: getSetting('remindEnabled', '0') === '1',
+    times: String(getSetting('remindTimes', ''))
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    subscriptions: listSubscriptions().length,
+  };
 }
 
 // ---------------------------------------------------------------- 数据操作
@@ -397,6 +419,7 @@ const routes = {
       level: currentLevel(),
       categories: currentCategories(),
       showLevels: currentShowLevels(),
+      notify: currentNotify(),
       levels: LEVELS,
       stages: STAGES,
       categoriesMeta: CATEGORIES,
@@ -427,11 +450,69 @@ const routes = {
     if (body.showLevels !== undefined) {
       setSetting('showLevels', body.showLevels ? '1' : '0');
     }
+    if (body.fetchHour !== undefined) {
+      // 空字符串 = 关闭定时抓取
+      const raw = String(body.fetchHour).trim();
+      if (raw === '') setSetting('fetchHour', '');
+      else {
+        const h = Number(raw);
+        if (!Number.isInteger(h) || h < 0 || h > 23) throw new Error('抓取时刻必须是 0–23');
+        setSetting('fetchHour', String(h));
+      }
+    }
+    if (body.remindEnabled !== undefined) {
+      setSetting('remindEnabled', body.remindEnabled ? '1' : '0');
+    }
+    if (body.remindTimes !== undefined) {
+      const list = (Array.isArray(body.remindTimes) ? body.remindTimes : [])
+        .map((s) => String(s).trim())
+        .filter((s) => /^([01]?\d|2[0-3]):[0-5]\d$/.test(s));
+      setSetting('remindTimes', list.join(','));
+    }
     return {
       level: currentLevel(),
       categories: currentCategories(),
       showLevels: currentShowLevels(),
+      notify: currentNotify(),
     };
+  },
+
+  /** 推送需要的 VAPID 公钥（浏览器 subscribe 时要用） */
+  'GET /api/push/key': () => {
+    const vapid = ensureVapid(getSetting, setSetting);
+    return { publicKey: vapid.publicKey };
+  },
+
+  /** 保存浏览器订阅 */
+  'POST /api/push/subscribe': ({ body, req }) => {
+    saveSubscription(body, req.headers['user-agent'] ?? null);
+    return { ok: true, subscriptions: listSubscriptions().length };
+  },
+
+  'POST /api/push/unsubscribe': ({ body }) => {
+    if (body?.endpoint) removeSubscription(String(body.endpoint));
+    return { ok: true, subscriptions: listSubscriptions().length };
+  },
+
+  /** 发一条测试通知 —— 用来确认链路通不通，比等定时更直接 */
+  'POST /api/push/test': async () => {
+    const vapid = ensureVapid(getSetting, setSetting);
+    const due = db
+      .prepare(
+        `SELECT COUNT(*) AS c FROM vocab
+         WHERE status != 'archived' AND (due_at IS NULL OR due_at <= ?)`,
+      )
+      .get(new Date().toISOString()).c;
+    const r = await pushAll(
+      {
+        title: '语境背单词',
+        body: due > 0 ? `有 ${due} 个词到期，去复习一下` : '这是一条测试通知',
+        url: '/review',
+        tag: 'test',
+      },
+      vapid,
+    );
+    return { ...r, subscriptions: listSubscriptions().length };
   },
 
   /** 从文本库点开某一篇。会开一个新会话（已读完的可重读）。 */
@@ -1008,6 +1089,9 @@ server.listen(PORT, HOST, () => {
   const corpus = db.prepare('SELECT COUNT(*) AS c FROM texts').get().c;
   const words = db.prepare('SELECT COUNT(*) AS c FROM words').get().c;
   console.log(`词库 ${words.toLocaleString()} 词 · 语料 ${corpus} 篇`);
+  // 定时任务：每日抓取 + 定时提醒。挂在这里而不是模块顶层，
+  // 免得 seed / reprocess 之类的脚本 import 这个模块时也跟着起定时器。
+  startScheduler();
   console.log(`API  http://localhost:${PORT}`);
   if (!fs.existsSync(DIST_DIR)) {
     console.log('提示：开发模式请另开终端运行 npm run dev:web');

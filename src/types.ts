@@ -252,6 +252,16 @@ export interface AppState {
   };
   reviews: { total: number | null; cloze: number | null; reading: number | null; ok: number | null };
   corpus: { texts: number; readTexts: number; reading: number; unread: number };
+  /** 定时抓取与提醒 */
+  notify: {
+    /** 每天定时抓取的整点，null = 关闭 */
+    fetchHour: number | null;
+    remindEnabled: boolean;
+    /** "HH:MM" 列表 */
+    times: string[];
+    /** 已保存的浏览器订阅数 */
+    subscriptions: number;
+  };
   /** 当前抓取任务（若有），用于刷新后恢复「正在抓取」状态 */
   fetchJob: FetchJob | null;
 }

@@ -10,6 +10,18 @@ interface Props {
   onLogout: () => Promise<void>;
 }
 
+const PRESET_HOURS = [6, 7, 8, 9, 12, 18, 20, 22];
+const PRESET_TIMES = ['08:00', '12:00', '18:00', '20:00', '22:00'];
+
+/** VAPID 公钥是 base64url，subscribe 要的是 Uint8Array。 */
+function urlBase64ToUint8Array(base64: string): Uint8Array {
+  const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4))
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  const raw = atob(padded);
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
 export function SettingsPanel({ state, onStateChange, username, onLogout }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +79,100 @@ export function SettingsPanel({ state, onStateChange, username, onLogout }: Prop
       // 下面那行还会显示开始时间。
       await api.fetchStart(12);
       await onStateChange();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 定时抓取的时间。null 表示关闭。 */
+  const setFetchHour = async (hour: number | null) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setSettings({ fetchHour: hour === null ? '' : hour });
+      await onStateChange();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleRemind = async (on: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setSettings({ remindEnabled: on });
+      await onStateChange();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleTime = async (t: string) => {
+    const set = new Set(state.notify.times);
+    if (set.has(t)) set.delete(t);
+    else set.add(t);
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setSettings({ remindTimes: [...set].sort() });
+      await onStateChange();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * 启用浏览器通知：申请权限 → 用服务端的 VAPID 公钥订阅 → 把订阅交给服务端存起来。
+   *
+   * 三步都可能失败且原因不同（不支持 / 权限被拒 / 订阅失败），
+   * 必须分开报，否则用户只知道「不行」却不知道该去改哪里。
+   */
+  const enablePush = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        throw new Error('这个浏览器不支持推送通知');
+      }
+      // Service Worker 要安全上下文：https 或 localhost
+      const reg = await navigator.serviceWorker.ready;
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        throw new Error('通知权限被拒绝，需要在浏览器地址栏左侧的站点设置里允许');
+      }
+      const { publicKey } = await api.pushKey();
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+      });
+      await api.pushSubscribe(sub.toJSON() as PushSubscriptionJSON);
+      await onStateChange();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 发一条测试通知，把服务端的失败原因带出来。 */
+  const testPush = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.pushTest();
+      if (r.subscriptions === 0) throw new Error('还没有订阅：先点「启用通知」');
+      if (r.sent === 0) {
+        const first = r.results[0];
+        throw new Error(`发送失败：${first?.error || `HTTP ${first?.status ?? 0}`}`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -163,6 +269,76 @@ export function SettingsPanel({ state, onStateChange, username, onLogout }: Prop
               {job.status === 'error' && `上次失败：${job.error}`}
             </p>
           )}
+        </div>
+
+        <div className="section">
+          <h2 className="section-title">定时与提醒</h2>
+
+          <div className="chips chips-wrap">
+            <button
+              className={`chip${state.notify.fetchHour === null ? ' on' : ''}`}
+              disabled={busy}
+              onClick={() => void setFetchHour(null)}
+            >
+              不定时抓取
+            </button>
+            {PRESET_HOURS.map((h) => (
+              <button
+                key={h}
+                className={`chip${state.notify.fetchHour === h ? ' on' : ''}`}
+                disabled={busy}
+                onClick={() => void setFetchHour(h)}
+              >
+                每天 {String(h).padStart(2, '0')}:00 抓取
+              </button>
+            ))}
+          </div>
+
+          <label className="toggle nav-switch mt-10">
+            <input
+              type="checkbox"
+              className="switch-input"
+              checked={state.notify.remindEnabled}
+              disabled={busy}
+              onChange={(e) => void toggleRemind(e.target.checked)}
+            />
+            <span className="switch" />
+            有词到期或今天没学时提醒
+          </label>
+
+          {state.notify.remindEnabled && (
+            <div className="chips chips-wrap mt-10">
+              {PRESET_TIMES.map((t) => (
+                <button
+                  key={t}
+                  className={`chip${state.notify.times.includes(t) ? ' on' : ''}`}
+                  disabled={busy}
+                  onClick={() => void toggleTime(t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="btn-row">
+            <button className="btn primary" disabled={busy} onClick={() => void enablePush()}>
+              {state.notify.subscriptions > 0 ? '重新启用通知' : '启用通知'}
+            </button>
+            <button
+              className="btn"
+              disabled={busy || state.notify.subscriptions === 0}
+              onClick={() => void testPush()}
+            >
+              发一条测试
+            </button>
+          </div>
+
+          <p className="desc">
+            {state.notify.subscriptions > 0
+              ? `${state.notify.subscriptions} 个浏览器已订阅`
+              : '通知需要浏览器授权；仅 https 或 localhost 可用'}
+          </p>
         </div>
 
         <div className="section">
