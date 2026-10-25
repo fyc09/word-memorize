@@ -87,10 +87,24 @@ export function schedule(card, gradeKey, now = new Date()) {
       break;
     }
     case 'reading_good': {
-      // 关键：阅读中认出来 ≠ 能主动回忆出来。
-      // 间隔封顶，且 verified 保持 0，让它必须再走一次填空才算真记住。
-      interval = Math.max(1, Math.min(READING_INTERVAL_CAP, (interval || 1) * 1.4));
-      verified = 0;
+      /*
+       * 认读（英 → 中）通过。
+       *
+       * 这一档的语义变过：以前是「阅读时顺带认出来」（弱信号），
+       * 现在是复习里正式的一道题，和默写交替出现。
+       * 所以两件事必须改：
+       *
+       * 1. 不再把间隔往回拉。原来写成
+       *      min(CAP, interval * 1.4)
+       *    于是一个间隔 34 天的已掌握词，一考认读就被拉回 4 天，
+       *    而两种题型交替 —— 它就永远升不上去。
+       *    改成「只涨不跌」：涨得慢（封项 CAP）但绝不倒退。
+       * 2. 不再清零 verified。同样是因为交替 —— 已掌握的词被考一次认读
+       *    就退回待验证，会让阶段在两道题之间来回跳。
+       *    认读本身不足以证明能回忆（那是默写的事），所以它不该把
+       *    verified 置 1；但也不该把已经得到的 1 抹掉。
+       */
+      interval = Math.max(interval, Math.min(READING_INTERVAL_CAP, (interval || 1) * 1.4));
       reps += 1;
       break;
     }
