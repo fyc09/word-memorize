@@ -1031,7 +1031,22 @@ function serveStatic(res, pathname) {
     file = path.join(DIST_DIR, 'index.html');
   }
   const ext = path.extname(file).toLowerCase();
-  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+  /*
+   * 缓存策略：
+   *   /assets/*  文件名带内容哈希，内容一变文件名就变 → 可以长期缓存
+   *   其余（index.html、sw.js）必须每次回源验证
+   *
+   * 不设头是不行的：浏览器会按启发式规则自己缓一份，
+   * 重新构建后你看到的仍是旧页面 —— 本地开发尤其容易撞上，
+   * 而 sw.js 被缓存更麻烦，旧的 worker 会一直活着。
+   */
+  const isHashedAsset = file.includes(`${path.sep}assets${path.sep}`);
+  res.writeHead(200, {
+    'Content-Type': MIME[ext] || 'application/octet-stream',
+    'Cache-Control': isHashedAsset
+      ? 'public, max-age=31536000, immutable'
+      : 'no-cache',
+  });
   fs.createReadStream(file).pipe(res);
   return true;
 }

@@ -461,6 +461,18 @@ a:hover {
   align-items: center;
 }
 
+/*
+ * 板块里的 chip 组要和上面的控件拉开。
+ *
+ * 分开的组件不能贴在一起 —— 输入框 + 「添加」按钮是一组，
+ * 下面那排 chip 是另一组，两排紧贴着看就像同一行在换行。
+ * 写在 .section > 下而不是每个地方加 mt-*，免得以后新加的地方又忘。
+ * （与 .section-title 的 margin-bottom 相邻时会折叠，取较大的一个）
+ */
+.section > .chips:not(:first-child) {
+  margin-top: 14px;
+}
+
 .chips-wrap {
   flex-wrap: wrap;
   margin-bottom: 18px;
