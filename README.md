@@ -42,6 +42,32 @@ npm run build     # 构建前端
 npm start         # → http://localhost:3001
 ```
 
+### 单用户登录
+
+首次启动会创建 `wordmem` 账号并在终端显示一次随机密码，密码以加盐 scrypt
+哈希保存在 SQLite 中。登录有效期七天，会话存在数据库，重启后仍可使用。
+全部业务 API 都需要登录；在「设置」里可以退出，退出后会话立即失效。
+浏览器只保存 HttpOnly Cookie，不在 localStorage 中保存登录令牌。
+
+可用 `WORDMEM_USER` 和 `WORDMEM_PASS` 环境变量指定或重置账号密码，必须同时设置。
+凭据发生变化时已有会话会失效；环境变量不变时不会在每次重启后强制退出。
+`.env.example` 只提供配置示例，启动程序不会自动加载 `.env`。
+
+### 服务器部署
+
+当前服务器入口：`https://117.72.112.65:27191`。
+部署目录为 `/opt/word-mem`，Node 服务仅监听 `127.0.0.1:27190`，Nginx 在
+27191 提供 HTTPS，并沿用 GTD Manager 的证书。配置模板在 `deploy/`。
+
+先执行 `npm run typecheck`、`npm test`、`npm run build`，再上传
+`server/`、`dist/`、`package.json`、`package-lock.json` 和数据库的完整快照。
+服务器执行 `npm ci --omit=dev` 安装运行时依赖。首次部署需要现有的词库与语料库；
+升级部署时保留服务器的 `data/app.db`，不要用本地数据库覆盖学习进度。
+数据库可通过 `DB_FILE` 指定，适合独立保存数据和在测试时隔离数据。
+
+服务管理：`sudo systemctl restart word-mem`；日志：
+`sudo journalctl -u word-mem`。此服务随服务器开机启动。
+
 开发模式（前端热更新，API 在 3001，浏览器访问 5173）：
 
 ```bash

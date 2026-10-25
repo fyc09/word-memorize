@@ -269,6 +269,13 @@ export interface ReviewItem {
   phonetic: string | null;
   pos: string | null;
   stage: 'new' | 'reading' | 'learning' | 'mature';
+  /**
+   * 这一步考哪种能力：
+   *   recognize —— 认读，只给英文，判断认不认识
+   *   recall    —— 默写，挖空句 + 中文释义，把词写出来
+   * 两个都过，这个词才算过。
+   */
+  test: 'recognize' | 'recall';
   reps: number;
   lapses: number;
   /** true 表示没能换到新语境，只能复用学习时那篇文章的另一个句子 */

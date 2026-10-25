@@ -9,14 +9,23 @@ interface Props {
   onStateChange: () => void | Promise<void>;
 }
 
-/** 一道题的阶段。 */
+/**
+ * 一道题的阶段。
+ *
+ * 两种题型，对应两个方向的能力，缺一不算过：
+ *   recognize —— 认读（英 → 中）：只给英文，判断认不认识。新词先走这一步。
+ *   cloze     —— 默写（中 → 英）：给挖空的句子 + 中文释义，把词写出来。
+ *
+ * 认读通过后 verified 仍是 0，下一步才是默写；默写成功才 verified = 1。
+ * 所以「两个都会才算过」不是额外加的规则 —— 它就是这套状态机本身。
+ */
 type Phase =
-  /** 看挖空的句子，回忆并默写 */
+  /** 认读：只给英文 */
+  | 'recognize'
+  /** 默写：挖空句 + 中文释义 */
   | 'cloze'
-  /** 已揭示答案，等用户自评 */
+  /** 默写已揭示，等自评 */
   | 'revealed'
-  /** 「填不出来」后的退回方式：把词放回原句里读，只判断认不认识 */
-  | 'reading'
   /** 评完熟练度 —— 亮出这个词的卡片，看完自己确认再进下一个 */
   | 'card';
 
@@ -26,10 +35,14 @@ const CLOZE_GRADES: { key: GradeKey; label: string; cls: string; k: string }[] =
   { key: 'cloze_fail', label: '没想起来', cls: 'bad', k: '3' },
 ];
 
-const READING_GRADES: { key: GradeKey; label: string; cls: string; k: string }[] = [
+const RECOGNIZE_GRADES: { key: GradeKey; label: string; cls: string; k: string }[] = [
   { key: 'reading_good', label: '认识', cls: 'good', k: '1' },
   { key: 'reading_fail', label: '不认识', cls: 'bad', k: '2' },
 ];
+
+/** 题目该从哪个阶段开始 —— 由服务端给的 test 决定。 */
+const startPhase = (item: ReviewItem | undefined): Phase =>
+  item?.test === 'recognize' ? 'recognize' : 'cloze';
 
 export function ReviewSession({ state, onStateChange }: Props) {
   const [plan, setPlan] = useState<ReviewPlan | null>(null);
@@ -38,30 +51,20 @@ export function ReviewSession({ state, onStateChange }: Props) {
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState<Phase>('cloze');
   const [typed, setTyped] = useState('');
-  // 是否主动要过提示。回忆阶段默认不给任何线索，
-  // 因为音标一显示就等于把答案读出来了。
-  const [usedHint, setUsedHint] = useState(false);
   /** 评完熟练度后展示的单词卡片 */
   const [cardDetail, setCardDetail] = useState<WordDetail | null>(null);
   const [cardLoading, setCardLoading] = useState(false);
-  /**
-   * 这道题是从哪条路评的。
-   * 卡片页要把题面留在上方（释义要和原文对着看），而题面的形态取决于
-   * 走的是「默写」还是「填不出来 → 只认上下文」—— phase 那时已经是 card，
-   * 记不住了，所以单独存一个。
-   */
-  const [gradedFrom, setGradedFrom] = useState<'cloze' | 'reading'>('cloze');
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     setIdx(0);
-    setPhase('cloze');
     setTyped('');
-    setUsedHint(false);
     setCardDetail(null);
     try {
-      setPlan(await api.reviewPlan(12));
+      const p = await api.reviewPlan(12);
+      setPlan(p);
+      setPhase(startPhase(p.items[0]));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -77,12 +80,11 @@ export function ReviewSession({ state, onStateChange }: Props) {
 
   /**
    * 评分。注意这里**不**推进到下一题 —— 先把这个词的卡片亮出来，
-   * 让用户看完确认（Anki 那种「直接翻页」会把还没看清的词冲走）。
+   * 让用户看完确认（直接翻页会把还没看清的词冲走）。
    */
   const submit = useCallback(
     (grade: GradeKey) => {
       if (!item) return;
-      setGradedFrom(phase === 'reading' ? 'reading' : 'cloze');
       setLoading(true);
       setCardLoading(true);
       api
@@ -92,7 +94,6 @@ export function ReviewSession({ state, onStateChange }: Props) {
           sentenceId: item.sentenceId,
           grade,
           typed,
-          usedHint,
         })
         .then(async () => {
           setCardDetail(await api.word(item.word, item.level));
@@ -105,18 +106,18 @@ export function ReviewSession({ state, onStateChange }: Props) {
           setCardLoading(false);
         });
     },
-    [item, typed, usedHint, onStateChange, phase],
+    [item, typed, onStateChange],
   );
 
-  /** 确认看完 → 进下一个词 */
+  /** 确认看完 → 进下一个词（并按下个词的题型决定从哪一步开始） */
   const next = useCallback(() => {
+    const nxt = plan?.items[idx + 1];
     setIdx((i) => i + 1);
-    setPhase('cloze');
+    setPhase(startPhase(nxt));
     setTyped('');
-    setUsedHint(false);
     setCardDetail(null);
     setError(null);
-  }, []);
+  }, [plan, idx]);
 
   /** 卡片上标记 / 取消标记 */
   const setMark = useCallback(
@@ -153,7 +154,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
     }
   }, []);
 
-  // 键盘：1/2/3 评分，Enter 揭示答案或在卡片页进下一个
+  // 键盘：认读 1/2，默写 Enter 揭示、揭示后 1/2/3 自评，卡片页 Enter 进下一个
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!item || loading) return;
@@ -164,8 +165,8 @@ export function ReviewSession({ state, onStateChange }: Props) {
         }
         return;
       }
-      const grades = phase === 'reading' ? READING_GRADES : CLOZE_GRADES;
-      if (phase === 'revealed' || phase === 'reading') {
+      if (phase === 'recognize' || phase === 'revealed') {
+        const grades = phase === 'recognize' ? RECOGNIZE_GRADES : CLOZE_GRADES;
         const g = grades.find((x) => x.k === e.key);
         if (g) {
           e.preventDefault();
@@ -199,7 +200,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
         {plan && plan.dueCount === 0 && (
           <div className="section">
             <h2 className="section-title">没有到期的词</h2>
-            <button className="btn primary" onClick={() => void load()}>
+            <button className="btn primary" type="button" onClick={() => void load()}>
               重新检查
             </button>
           </div>
@@ -211,7 +212,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
             <p className="desc">
               到期 {plan.dueCount} / 语料 {state.corpus.texts} 篇
             </p>
-            <button className="btn primary" onClick={() => void load()}>
+            <button className="btn primary" type="button" onClick={() => void load()}>
               重试
             </button>
           </div>
@@ -221,7 +222,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
         {plan && plan.items.length > 0 && !item && (
           <div className="section">
             <h2 className="section-title">复习完成</h2>
-            <button className="btn primary" onClick={() => void load()}>
+            <button className="btn primary" type="button" onClick={() => void load()}>
               再来一轮
             </button>
           </div>
@@ -236,11 +237,11 @@ export function ReviewSession({ state, onStateChange }: Props) {
                 </h2>
 
                 {/*
-                  卡片摆在题面**后面**，两者同屏 —— 光看释义记不住，
-                  得能一边看词在原文里的样子，一边看它是什么意思。
+                  卡片摆在题面**后面**，两者同屏 ——
+                  光看释义记不住，得能一边看它长什么样，一边看它是什么意思。
                 */}
                 <div className="qcard">
-                  <SentenceLine item={item} from={gradedFrom} />
+                  <SentenceLine item={item} />
                 </div>
 
                 <div className="section">
@@ -255,7 +256,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
                 </div>
 
                 <div className="btn-row">
-                  <button className="btn primary wide" onClick={next}>
+                  <button className="btn primary wide" type="button" onClick={next}>
                     {idx + 1 < plan.items.length ? '下一个' : '完成本轮'}
                   </button>
                 </div>
@@ -277,25 +278,21 @@ export function ReviewSession({ state, onStateChange }: Props) {
                         style={{ width: `${(idx / plan.items.length) * 100}%` }}
                       />
                     </div>
-                    <span className="pill">
-                      {item.stage === 'reading'
-                        ? '待填空验证'
-                        : item.stage === 'new'
-                          ? '新词'
-                          : '巩固中'}
-                    </span>
+                    <span className="pill">{item.test === 'recognize' ? '认读' : '默写'}</span>
                   </div>
 
                   {item.reusedContext && <div className="pill">沿用原文</div>}
 
-                  {phase === 'reading' ? (
+                  {phase === 'recognize' ? (
                     <>
-                      <div className="ctx">{highlightContext(item.context, item.answer)}</div>
+                      {/* 认读只给英文 —— 不给音标、不给句子，否则等于直接告诉意思 */}
+                      <div className="q-word">{item.answer}</div>
                       <div className="grade-row">
-                        {READING_GRADES.map((g) => (
+                        {RECOGNIZE_GRADES.map((g) => (
                           <button
                             key={g.key}
                             className={`grade-btn ${g.cls}`}
+                            type="button"
                             onClick={() => submit(g.key)}
                             disabled={loading}
                           >
@@ -313,6 +310,14 @@ export function ReviewSession({ state, onStateChange }: Props) {
                           : renderRevealed(item.sentence, item.answer)}
                       </div>
 
+                      {/*
+                        默写给中文释义 —— 这是这一版最重要的放松：
+                        原来只有挖空的句子，等于要求「从语境推词形」，
+                        现在告诉你它在中文里是什么意思，只考拼写与回忆。
+                        揭示之后就把中文收起来，免得和答案摆在一起像在提示。
+                      */}
+                      {phase === 'cloze' && <p className="q-zh">{firstLine(item.translation)}</p>}
+
                       {phase === 'cloze' ? (
                         <>
                           <input
@@ -328,33 +333,13 @@ export function ReviewSession({ state, onStateChange }: Props) {
                               }
                             }}
                           />
-
-                          {/*
-                            回忆阶段刻意**不显示音标、词性、释义**。
-                            念出 /ˈdekeɪd/ 基本等于把 decades 拼出来了，主动回忆就失效了。
-                            想要线索必须主动点「给点提示」，而且只给词形，不给读音。
-                          */}
-                          {usedHint && (
-                            <p className="q-hint">
-                              共 <b>{item.answer.length}</b> 个字母 / 首字母{' '}
-                              <b>{item.answer[0]}</b>
-                              {item.pos ? <> / {item.pos}</> : null}
-                            </p>
-                          )}
-
                           <div className="btn-row">
-                            <button className="btn primary" onClick={() => setPhase('revealed')}>
-                              对答案
-                            </button>
-                            <button className="btn" onClick={() => setPhase('reading')}>
-                              填不出来
-                            </button>
                             <button
-                              className="btn"
-                              disabled={usedHint}
-                              onClick={() => setUsedHint(true)}
+                              className="btn primary"
+                              type="button"
+                              onClick={() => setPhase('revealed')}
                             >
-                              {usedHint ? '已给提示' : '给点提示'}
+                              对答案
                             </button>
                           </div>
                         </>
@@ -362,9 +347,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
                         <>
                           {/*
                             揭示区只回答一件事：对不对。
-                            音标、等级、中文释义一概不放 —— 那些属于评分之后亮出来的词卡，
-                            放在这里会把「先自评、再看词卡」的节奏冲掉。
-                            答案和填的都保持衬线加粗、用斜线隔开，拼错时一眼能对出差别。
+                            音标、等级、中文释义一概不放 —— 那些属于评分之后亮出来的词卡。
                           */}
                           <div className="q-answer-line">
                             <b>{item.answer}</b>
@@ -380,6 +363,7 @@ export function ReviewSession({ state, onStateChange }: Props) {
                               <button
                                 key={g.key}
                                 className={`grade-btn ${g.cls}`}
+                                type="button"
                                 onClick={() => submit(g.key)}
                                 disabled={loading}
                               >
@@ -402,15 +386,18 @@ export function ReviewSession({ state, onStateChange }: Props) {
   );
 }
 
+/** 释义只取第一行 —— 后面的「[医]」这类分科释义在提示位置太吵。 */
+function firstLine(translation: string | null): string {
+  return (translation ?? '').split('\\n').filter(Boolean)[0] ?? '';
+}
+
 /**
- * 题面：默写模式还原整句并高亮答案，阅读模式只给目标词周围的上下文。
+ * 卡片页上方的题面：把词放回原句里，高亮它。
  *
- * 卡片页也用它 —— 上面是词在原文里的样子，下面是释义，同屏对照。
+ * 定题的时候只给一段句子是不行的（那等于把答案写出来了），
+ * 所以只用在评分之后的卡片页 —— 上面是它在原文里的样子，下面是释义。
  */
-function SentenceLine({ item, from }: { item: ReviewItem; from: 'cloze' | 'reading' }) {
-  if (from === 'reading') {
-    return <div className="ctx">{highlightContext(item.context, item.answer)}</div>;
-  }
+function SentenceLine({ item }: { item: ReviewItem }) {
   return <div className="q-sentence">{renderRevealed(item.sentence, item.answer)}</div>;
 }
 
@@ -447,28 +434,4 @@ function renderRevealed(sentence: string, answer: string) {
       {sentence.slice(idx + answer.length)}
     </>
   );
-}
-
-/** 阅读模式下把目标词在上下文里高亮出来。 */
-function highlightContext(context: string, answer: string) {
-  if (!answer) return context;
-  const lower = context.toLowerCase();
-  const needle = answer.toLowerCase();
-  const nodes: React.ReactNode[] = [];
-  let pos = 0;
-  let key = 0;
-
-  for (;;) {
-    const found = lower.indexOf(needle, pos);
-    if (found < 0) break;
-    if (found > pos) nodes.push(context.slice(pos, found));
-    nodes.push(
-      <span key={key++} className="ctx-word">
-        {context.slice(found, found + answer.length)}
-      </span>,
-    );
-    pos = found + answer.length;
-  }
-  if (pos < context.length) nodes.push(context.slice(pos));
-  return nodes;
 }

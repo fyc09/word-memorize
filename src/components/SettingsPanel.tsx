@@ -6,11 +6,24 @@ import { fmt } from './ActivityLog';
 interface Props {
   state: AppState;
   onStateChange: () => void | Promise<void>;
+  username: string;
+  onLogout: () => Promise<void>;
 }
 
-export function SettingsPanel({ state, onStateChange }: Props) {
+export function SettingsPanel({ state, onStateChange, username, onLogout }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const logout = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await onLogout();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '退出失败，请重试');
+      setBusy(false);
+    }
+  };
 
   const setLevel = async (level: number) => {
     setBusy(true);
@@ -71,6 +84,11 @@ export function SettingsPanel({ state, onStateChange }: Props) {
     <div className="wrap">
       <div className="page">
         {error && <div className="error">{error}</div>}
+
+        <div className="section login-account">
+          <h2 className="section-title">{username}</h2>
+          <button className="btn" disabled={busy} onClick={() => void logout()}>退出登录</button>
+        </div>
 
         <div className="section">
           <h2 className="section-title">我的水平</h2>

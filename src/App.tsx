@@ -38,7 +38,7 @@ function peekLabel(peek: Peek): string {
   return peek.kind === 'word' ? peek.word : '文章';
 }
 
-export function App() {
+export function App({ username, onLogout }: { username: string; onLogout: () => Promise<void> }) {
   const route = useRoute();
   const [state, setState] = useState<AppState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -232,7 +232,7 @@ export function App() {
           )}
           {route.tab === 'words' && <WordList onOpenWord={openWordFromMain} />}
           {route.tab === 'settings' && state && (
-            <SettingsPanel state={state} onStateChange={reload} />
+            <SettingsPanel state={state} onStateChange={reload} username={username} onLogout={onLogout} />
           )}
         </div>
       </main>

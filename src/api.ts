@@ -16,8 +16,22 @@ import type {
   WordRow,
 } from './types';
 
+export const AUTH_REQUIRED_EVENT = 'wordmem:auth-required';
+export class ApiError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init);
+  let res: Response;
+  try {
+    res = await fetch(path, { credentials: 'same-origin', ...init });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    throw new Error('连不上服务器，请稍后重试');
+  }
   let data: unknown;
   try {
     data = await res.json();
@@ -26,7 +40,10 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   }
   const asError = data as { error?: string } | null;
   if (!res.ok || asError?.error) {
-    throw new Error(asError?.error ?? `请求失败 ${res.status}`);
+    if (res.status === 401 && !path.startsWith('/api/auth/')) {
+      window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
+    }
+    throw new ApiError(asError?.error ?? `请求失败 ${res.status}`, res.status);
   }
   return data as T;
 }
@@ -37,6 +54,18 @@ const post = <T>(path: string, body: unknown): Promise<T> =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+
+export interface AuthSession {
+  username: string;
+  expiresAt: number;
+}
+
+export const authApi = {
+  session: (signal?: AbortSignal) => req<AuthSession>('/api/auth/session', { signal }),
+  login: (username: string, password: string) =>
+    post<AuthSession>('/api/auth/login', { username, password }),
+  logout: () => post<{ ok: boolean }>('/api/auth/logout', {}),
+};
 
 const qs = (params: Record<string, string | number | undefined>): string => {
   const p = new URLSearchParams();

@@ -448,6 +448,16 @@ export function planReview(opts = {}) {
         stage,
         reps,
         lapses: m?.lapses ?? 0,
+        /*
+         * 这一步考哪种能力。
+         *
+         * 新词先「认读」：只给英文，判断认不认识。这一步容易，
+         * 先把词和意思连起来，不必一上来就默写。
+         * 认读过了（此时 verified 仍为 0）才进入「默写」：给挖空的句子 + 中文释义，
+         * 把词写出来。两个都会，这个词才算过 —— 而 verified=1 只由默写成功给出，
+         * 所以「过」的定义天然就是「两步都过」。
+         */
+        test: stage === 'new' ? 'recognize' : 'recall',
         // true 表示没能换到新语境，只能复用学习时那篇文章的另一个句子
         reusedContext: reused,
       });

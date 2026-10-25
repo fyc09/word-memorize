@@ -13,7 +13,9 @@ import { wordsPerSentence } from './tokenize.mjs';
 import { ensureSchema } from './schema.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const DB_PATH = path.join(ROOT, 'data', 'app.db');
+export const DB_PATH = process.env.DB_FILE
+  ? path.resolve(process.env.DB_FILE)
+  : path.join(ROOT, 'data', 'app.db');
 
 if (!fs.existsSync(DB_PATH)) {
   throw new Error(

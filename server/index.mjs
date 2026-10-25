@@ -31,13 +31,19 @@ import {
 import { latestJob, runningJob, reapStaleJobs, startFetchJob } from './jobs.mjs';
 import { boilerplateStart } from './extract.mjs';
 import { CATEGORIES, FEEDS } from './feeds.mjs';
+import { ensurePool } from './ingest.mjs';
+import { createAuth } from './auth.mjs';
+
+const auth = createAuth(db);
 
 // 上一次进程被杀掉时留下的 'running' 任务会永远转圈，
 // 启动时先收尸，否则抓取按钮会一直不可用。
 const reaped = reapStaleJobs();
 if (reaped > 0) console.log(`清理了 ${reaped} 条中断的后台任务`);
 
-const PORT = Number(process.env.PORT) || 3001;
+const PORT = Number(process.env.PORT || 3001);
+const HOST = process.env.HOST || '127.0.0.1';
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) throw new Error('PORT 必须是有效端口');
 const DIST_DIR = path.join(ROOT, 'dist');
 
 // ---------------------------------------------------------------- 工具
@@ -48,7 +54,6 @@ function json(res, data, status = 200) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
-    'Access-Control-Allow-Origin': '*',
   });
   res.end(body);
 }
@@ -941,16 +946,38 @@ function serveStatic(res, pathname) {
 // ---------------------------------------------------------------- 启动
 
 const server = http.createServer(async (req, res) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'same-origin');
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
 
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    });
+    res.writeHead(204);
     res.end();
     return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/health') {
+    json(res, { status: 'ok' });
+    return;
+  }
+
+  if (url.pathname.startsWith('/api/')) {
+    if (!auth.allowedOrigin(req)) {
+      json(res, { error: '请求来源不被允许' }, 403);
+      return;
+    }
+    try {
+      if (await auth.handle(req, res, url, readBody, json)) return;
+    } catch (err) {
+      console.error('[auth]', err instanceof Error ? err.message : String(err));
+      json(res, { error: '登录请求无法处理，请检查输入后重试' }, 400);
+      return;
+    }
+    if (!auth.session(req)) {
+      json(res, { error: '请先登录' }, 401);
+      return;
+    }
   }
 
   const key = `${req.method} ${url.pathname}`;
@@ -977,7 +1004,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   const corpus = db.prepare('SELECT COUNT(*) AS c FROM texts').get().c;
   const words = db.prepare('SELECT COUNT(*) AS c FROM words').get().c;
   console.log(`词库 ${words.toLocaleString()} 词 · 语料 ${corpus} 篇`);
@@ -986,3 +1013,14 @@ server.listen(PORT, () => {
     console.log('提示：开发模式请另开终端运行 npm run dev:web');
   }
 });
+
+function shutdown() {
+  server.close(() => {
+    db.close();
+    process.exit(0);
+  });
+  server.closeIdleConnections();
+  setTimeout(() => process.exit(0), 10_000).unref();
+}
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);

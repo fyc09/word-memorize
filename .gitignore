@@ -6,3 +6,5 @@ data/app.db-shm
 data/raw/
 tmp/
 nohup.out
+.env
+.env.local
