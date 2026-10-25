@@ -455,8 +455,16 @@ a:hover {
   font-size: 13px;
 }
 
+/*
+ * chip 行默认换行。
+ *
+ * 不换行的后果不只是撑破容器：手机浏览器会为了让内容装下而
+ * 缩小整个视口 —— 表现就是「页面能缩小」「字变小了」，很难联想到
+ * 是某一排 chip 太宽。项目里所有 chip 组都应该能折行。
+ */
 .chips {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }

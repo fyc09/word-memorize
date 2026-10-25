@@ -13,7 +13,7 @@
 
 import { db, getSetting, setSetting } from './db.mjs';
 import { startFetchJob, runningJob } from './jobs.mjs';
-import { ensureVapid, sendToAll } from './push.mjs';
+import { DEFAULT_SUBJECT, ensureVapid, sendToAll } from './push.mjs';
 
 const TICK_MS = 60_000;
 
@@ -74,7 +74,8 @@ export function listSubscriptions() {
 
 /** 给所有订阅发一条，失效的顺手删掉。 */
 export async function pushAll(payload, vapid) {
-  const subject = getSetting('pushSubject', 'mailto:noreply@localhost');
+  // sub 必须带真实 TLD —— 旧默认值 noreply@localhost 会被 Apple 拒成 BadJwtToken
+  const subject = getSetting('pushSubject', DEFAULT_SUBJECT) || DEFAULT_SUBJECT;
   const subs = listSubscriptions();
   if (subs.length === 0) return { sent: 0, results: [] };
   const results = await sendToAll(subs, payload, vapid, subject, removeSubscription);

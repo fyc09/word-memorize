@@ -50,7 +50,16 @@ export function ensureVapid(getSetting, setSetting) {
  *
  * JWT 的 aud 必须是推送服务的源（从 endpoint 里取），不是我们自己的地址 ——
  * 写错会被 401，且提示很含糊。
+ *
+ * sub 必须是**带真实 TLD 的 mailto:** 或 https URL。Apple 的推送服务
+ * （web.push.apple.com）会因此直接报 403 BadJwtToken，而它的错误列表里
+ * 只说了「isn't a URL or mailto:」—— `mailto:noreply@localhost` 形式上
+ * 合格、但 localhost 没有 TLD，照样被拒。所以默认值用 example.com。
+ *
+ * 结果按 aud 缓存 ~50 分钟：Apple 明确要求「不要比每小时更频繁地刷新 JWT」。
  */
+const jwtCache = new Map();
+
 function vapidHeader(endpoint, vapid, subject) {
   let origin;
   try {
@@ -59,6 +68,11 @@ function vapidHeader(endpoint, vapid, subject) {
     // 订阅里的 endpoint 是浏览器给的，不能假定它一定合法
     return null;
   }
+
+  const cacheKey = `${origin}|${vapid.publicKey}|${subject}`;
+  const cached = jwtCache.get(cacheKey);
+  if (cached && cached.until > Date.now()) return cached.header;
+
   const header = b64u(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
   const payload = b64u(
     JSON.stringify({
@@ -78,9 +92,14 @@ function vapidHeader(endpoint, vapid, subject) {
     key,
     dsaEncoding: 'ieee-p1363',
   });
-  const jwt = `${signingInput}.${b64u(sig)}`;
-  return `vapid t=${jwt}, k=${vapid.publicKey}`;
+  const value = `vapid t=${signingInput}.${b64u(sig)}, k=${vapid.publicKey}`;
+  // exp 是 12h 后，这里保守一点提前一小时重签
+  jwtCache.set(cacheKey, { header: value, until: Date.now() + 11 * 3600 * 1000 });
+  return value;
 }
+
+/** 默认的联系地址。Apple 会校验 TLD，所以不能用 localhost。 */
+export const DEFAULT_SUBJECT = 'mailto:noreply@example.com';
 
 /** HKDF-SHA256，返回指定长度。 */
 function hkdf(salt, ikm, info, len) {
